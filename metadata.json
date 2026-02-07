@@ -1,0 +1,7 @@
+{
+  "name": "C-Lab Performance",
+  "description": "A scientific sports training planning application focusing on polarized training and interference management.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
