@@ -1,4 +1,4 @@
-import { formatStopwatch, getMuscleActivation } from './helpers';
+import { formatStopwatch, getMuscleActivation, BODY_PATHS } from './helpers';
 
 export const getRecommendedSchedule = (sessions: any[], isHyrox = false) => {
     const scheduleData = Array(7).fill(null).map((_, i) => ({
@@ -159,26 +159,25 @@ export const downloadShareImage = (session: any, durationSeconds: number, date: 
     ctx.fillText("DURÉE", 340, 370);
     ctx.fillText("INTENSITÉ (RPE)", 740, 370);
 
-    // Graphique Musculaire (SVG Reconstruit pour Canvas)
+    // Graphique Musculaire (Nouvelle version réaliste SVG)
     const active = getMuscleActivation(session.type);
     const primary = "#f43f5e"; // Rose
     const secondary = "#fb923c"; // Orange
     const inactive = "#334155"; // Slate-700
     
+    // Construction du SVG en utilisant les chemins BODY_PATHS
     const svgString = `
-    <svg width="400" height="500" viewBox="0 0 100 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="50" cy="15" r="10" fill="${inactive}" />
-        <path d="M35 30 H65 V60 H35 Z" fill="${active.chest ? primary : inactive}" rx="5" />
-        <circle cx="25" cy="35" r="8" fill="${active.shoulders ? primary : inactive}" />
-        <circle cx="75" cy="35" r="8" fill="${active.shoulders ? primary : inactive}" />
-        <rect x="15" y="45" width="10" height="40" rx="5" fill="${active.arms ? secondary : inactive}" />
-        <rect x="75" y="45" width="10" height="40" rx="5" fill="${active.arms ? secondary : inactive}" />
-        <rect x="40" y="62" width="20" height="30" rx="2" fill="${active.abs ? primary : inactive}" />
-        <rect x="35" y="95" width="12" height="50" rx="4" fill="${active.legs ? primary : inactive}" />
-        <rect x="53" y="95" width="12" height="50" rx="4" fill="${active.legs ? primary : inactive}" />
-        <rect x="37" y="150" width="8" height="35" rx="3" fill="${active.legs ? secondary : inactive}" />
-        <rect x="55" y="150" width="8" height="35" rx="3" fill="${active.legs ? secondary : inactive}" />
-        ${active.cardio ? `<path d="M56 36 C56 36 58 32 62 32 C66 32 68 36 62 42 L56 46 L50 42 C44 36 46 32 50 32 C54 32 56 36 56 36 Z" fill="${primary}" stroke="white" stroke-width="2"/>` : ''}
+    <svg width="400" height="500" viewBox="0 0 82 160" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="${BODY_PATHS.head}" fill="${inactive}" />
+        <path d="${BODY_PATHS.neck}" fill="${inactive}" />
+        <path d="${BODY_PATHS.traps}" fill="${active.shoulders || active.back ? secondary : inactive}" />
+        <path d="${BODY_PATHS.shoulders}" fill="${active.shoulders ? primary : inactive}" />
+        <path d="${BODY_PATHS.chest}" fill="${active.chest ? primary : inactive}" />
+        <path d="${BODY_PATHS.abs}" fill="${active.abs || active.cardio ? secondary : inactive}" />
+        <path d="${BODY_PATHS.arms}" fill="${active.arms ? primary : inactive}" />
+        <path d="${BODY_PATHS.forearms}" fill="${active.arms ? secondary : inactive}" />
+        <path d="${BODY_PATHS.legs}" fill="${active.legs ? primary : inactive}" />
+        ${active.cardio ? `<circle cx="41" cy="40" r="2" fill="#fbbf24" style="opacity: 0.8"/>` : ''}
     </svg>`;
 
     const img = new Image();
@@ -199,7 +198,7 @@ export const downloadShareImage = (session: any, durationSeconds: number, date: 
     img.src = 'data:image/svg+xml;base64,' + btoa(svgString);
 };
 
-export const downloadTCX = (session: any, durationSeconds: number, date: Date, exercisesLog: any) => {
+export const downloadTCX = (session: any, durationSeconds: number, date: Date, exercisesLog: any, gpsRoute: any[] = []) => {
   const startTime = date.toISOString();
   const endTime = new Date(date.getTime() + durationSeconds * 1000).toISOString();
   
@@ -207,6 +206,7 @@ export const downloadTCX = (session: any, durationSeconds: number, date: Date, e
   const kcalPerMin = session.category === 'run' ? 12 : 8;
   const calories = Math.floor((durationSeconds / 60) * kcalPerMin); 
   
+  // Pour la muscu, on met "Other" ce qui est le standard TCX pour tout ce qui n'est pas Run/Bike
   let sport = 'Other';
   if (session.category === 'run') sport = 'Running';
   
@@ -264,6 +264,39 @@ export const downloadTCX = (session: any, durationSeconds: number, date: Date, e
   // Échappement des caractères spéciaux XML pour éviter les bugs d'import
   const safeNotes = notesContent.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
+  // Construction de la trace GPS (Trackpoints)
+  let trackContent = '';
+  if (gpsRoute && gpsRoute.length > 0) {
+      trackContent = '<Track>\n';
+      gpsRoute.forEach((pt: any) => {
+          trackContent += `
+          <Trackpoint>
+            <Time>${new Date(pt.time).toISOString()}</Time>
+            <Position>
+              <LatitudeDegrees>${pt.lat}</LatitudeDegrees>
+              <LongitudeDegrees>${pt.lon}</LongitudeDegrees>
+            </Position>
+            <DistanceMeters>${pt.dist * 1000}</DistanceMeters>
+          </Trackpoint>`;
+      });
+      trackContent += '\n</Track>';
+  } else {
+      // Fallback si pas de GPS : Points de début et fin fictifs pour valider le fichier
+      // Important pour Strava : ne pas mettre de distanceMeters si c'est de la muscu sans GPS, sinon il croit que c'est une course à pied de 0km
+      const distTag = sport === 'Running' ? `<DistanceMeters>${distanceMeters}</DistanceMeters>` : '';
+      trackContent = `
+        <Track>
+          <Trackpoint>
+            <Time>${startTime}</Time>
+            ${distTag}
+          </Trackpoint>
+          <Trackpoint>
+            <Time>${endTime}</Time>
+            ${distTag}
+          </Trackpoint>
+        </Track>`;
+  }
+
   const tcxContent = `<?xml version="1.0" encoding="UTF-8"?>
 <TrainingCenterDatabase
   xsi:schemaLocation="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2 http://www.garmin.com/xmlschemas/TrainingCenterDatabasev2.xsd"
@@ -278,16 +311,7 @@ export const downloadTCX = (session: any, durationSeconds: number, date: Date, e
         <Calories>${calories}</Calories>
         <Intensity>Active</Intensity>
         <TriggerMethod>Manual</TriggerMethod>
-        <Track>
-          <Trackpoint>
-            <Time>${startTime}</Time>
-            <DistanceMeters>0</DistanceMeters>
-          </Trackpoint>
-          <Trackpoint>
-            <Time>${endTime}</Time>
-            <DistanceMeters>${distanceMeters}</DistanceMeters>
-          </Trackpoint>
-        </Track>
+        ${trackContent}
       </Lap>
       <Notes>${safeNotes}</Notes>
       <Creator xsi:type="Device_t">

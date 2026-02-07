@@ -123,7 +123,7 @@ export default function App() {
           if (data) { setExercisesLog((prev: any) => ({...prev, [sessionId]: data})); } 
       } else { 
           if (!completedSessions.has(sessionId)) { toggleSession(sessionId); }
-          // Si on reçoit des données GPS (duration, distance) on les traite
+          // Si on reçoit des données GPS (duration, distance, ROUTE) on les traite
           if (data && (data.customDuration || data.customDistance)) {
               let sessionData = null;
               for (const week of plan) { 
@@ -131,6 +131,11 @@ export default function App() {
                   if (s) { sessionData = s; break; } 
               }
               if (sessionData) {
+                  // Sauvegarde de la trace GPS dans l'historique
+                  if(data.routeData) {
+                      setExercisesLog((prev: any) => ({...prev, [`${sessionId}_gps`]: data.routeData}));
+                  }
+
                   // On écrase les données théoriques avec les réelles pour l'affichage final
                   const realSessionData = { ...sessionData };
                   if (data.customDistance) realSessionData.distance = data.customDistance;
@@ -138,17 +143,18 @@ export default function App() {
                   setLastCompletedData({ 
                       session: realSessionData, 
                       duration: data.customDuration || (sessionData.durationMin * 60), 
-                      date: new Date() 
+                      date: new Date(),
+                      route: data.routeData // Pour l'export immédiat
                   });
               }
           }
       } 
   };
 
-  const handleTrackerFinish = (duration: number, distance: number) => {
+  const handleTrackerFinish = (duration: number, distance: number, route: any[]) => {
       if (showRunTracker) {
           const distStr = distance.toFixed(2) + " km";
-          handleSessionCompleteFromModal(showRunTracker, false, { customDuration: duration, customDistance: distStr });
+          handleSessionCompleteFromModal(showRunTracker, false, { customDuration: duration, customDistance: distStr, routeData: route });
           setShowRunTracker(null);
       }
   };
@@ -451,7 +457,7 @@ export default function App() {
                     <div className="space-y-3">
                         <button 
                             onClick={() => {
-                                downloadTCX(lastCompletedData.session, lastCompletedData.duration, lastCompletedData.date, exercisesLog);
+                                downloadTCX(lastCompletedData.session, lastCompletedData.duration, lastCompletedData.date, exercisesLog, lastCompletedData.route);
                                 setTimeout(() => {
                                     window.open('https://www.strava.com/upload/select', '_blank');
                                 }, 1000);

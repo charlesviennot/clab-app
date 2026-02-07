@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Zap, Dumbbell, Activity, Flame, Clock, X, Smartphone, Share, Pause, Play, StopCircle } from 'lucide-react';
-import { formatStopwatch, getMuscleActivation } from '../utils/helpers';
+import { formatStopwatch, getMuscleActivation, BODY_PATHS } from '../utils/helpers';
 
 export const RpeBadge = ({ level }: { level: number }) => {
     let color = "bg-emerald-100 text-emerald-700";
@@ -27,25 +27,35 @@ export const WorkoutViz = ({ structure, intensity }: { structure: string; intens
 
 export const MuscleHeatmap = ({ type, exercises }: { type: string, exercises?: any[] }) => {
     const active = getMuscleActivation(type);
-    const primaryColor = "#f43f5e"; 
-    const secondaryColor = "#fb923c"; 
-    const inactiveColor = "#e2e8f0"; 
+    const primaryColor = "#f43f5e"; // Rose vif
+    const secondaryColor = "#fb923c"; // Orange
+    const inactiveColor = "#334155"; // Slate foncé (plus discret sur fond sombre)
+    const strokeColor = "rgba(255,255,255,0.1)";
 
+    // Mapping des chemins
     return (
         <div className="flex justify-center p-4">
-            <svg width="100" height="200" viewBox="0 0 100 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="50" cy="15" r="10" fill={inactiveColor} />
-                <path d="M35 30 H65 V60 H35 Z" fill={active.chest ? primaryColor : inactiveColor} rx="5" />
-                <circle cx="25" cy="35" r="8" fill={active.shoulders ? primaryColor : inactiveColor} />
-                <circle cx="75" cy="35" r="8" fill={active.shoulders ? primaryColor : inactiveColor} />
-                <rect x="15" y="45" width="10" height="40" rx="5" fill={active.arms ? secondaryColor : inactiveColor} />
-                <rect x="75" y="45" width="10" height="40" rx="5" fill={active.arms ? secondaryColor : inactiveColor} />
-                <rect x="40" y="62" width="20" height="30" rx="2" fill={active.abs ? primaryColor : inactiveColor} />
-                <rect x="35" y="95" width="12" height="50" rx="4" fill={active.legs ? primaryColor : inactiveColor} />
-                <rect x="53" y="95" width="12" height="50" rx="4" fill={active.legs ? primaryColor : inactiveColor} />
-                <rect x="37" y="150" width="8" height="35" rx="3" fill={active.legs ? secondaryColor : inactiveColor} />
-                <rect x="55" y="150" width="8" height="35" rx="3" fill={active.legs ? secondaryColor : inactiveColor} />
-                {active.cardio && <path d="M56 36 C56 36 58 32 62 32 C66 32 68 36 62 42 L56 46 L50 42 C44 36 46 32 50 32 C54 32 56 36 56 36 Z" fill={primaryColor} className="animate-pulse"/>}
+            <svg width="120" height="220" viewBox="0 0 82 160" fill="none" xmlns="http://www.w3.org/2000/svg" style={{filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.3))'}}>
+                {/* Tête */}
+                <path d={BODY_PATHS.head} fill={inactiveColor} stroke={strokeColor} strokeWidth="0.5"/>
+                <path d={BODY_PATHS.neck} fill={inactiveColor} stroke={strokeColor} strokeWidth="0.5"/>
+                
+                {/* Haut du corps */}
+                <path d={BODY_PATHS.traps} fill={active.shoulders || active.back ? secondaryColor : inactiveColor} stroke={strokeColor} strokeWidth="0.5"/>
+                <path d={BODY_PATHS.shoulders} fill={active.shoulders ? primaryColor : inactiveColor} stroke={strokeColor} strokeWidth="0.5"/>
+                <path d={BODY_PATHS.chest} fill={active.chest ? primaryColor : inactiveColor} stroke={strokeColor} strokeWidth="0.5"/>
+                <path d={BODY_PATHS.abs} fill={active.abs || active.cardio ? secondaryColor : inactiveColor} stroke={strokeColor} strokeWidth="0.5"/>
+                
+                {/* Bras */}
+                <path d={BODY_PATHS.arms} fill={active.arms ? primaryColor : inactiveColor} stroke={strokeColor} strokeWidth="0.5"/>
+                <path d={BODY_PATHS.forearms} fill={active.arms ? secondaryColor : inactiveColor} stroke={strokeColor} strokeWidth="0.5"/>
+
+                {/* Jambes */}
+                <path d={BODY_PATHS.legs} fill={active.legs ? primaryColor : inactiveColor} stroke={strokeColor} strokeWidth="0.5"/>
+                
+                {active.cardio && (
+                    <circle cx="41" cy="40" r="2" fill="#fbbf24" className="animate-ping" style={{opacity: 0.8}}/>
+                )}
             </svg>
         </div>
     );

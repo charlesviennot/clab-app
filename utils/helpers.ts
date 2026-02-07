@@ -51,11 +51,11 @@ export const getMuscleActivation = (type: string) => {
     const active = { chest: false, back: false, shoulders: false, arms: false, abs: false, legs: false, cardio: false };
     const typeLower = type ? type.toLowerCase() : "";
     if (typeLower.includes('run') || typeLower.includes('cardio') || typeLower.includes('endurance') || typeLower.includes('vma') || typeLower.includes('seuil')) { active.legs = true; active.cardio = true; }
-    if (typeLower.includes('push') || typeLower.includes('force') || typeLower.includes('pecs') || typeLower.includes('upper')) { active.chest = true; active.shoulders = true; active.arms = true; }
-    if (typeLower.includes('pull') || typeLower.includes('dos') || typeLower.includes('back')) { active.back = true; active.arms = true; }
-    if (typeLower.includes('legs') || typeLower.includes('jambes') || typeLower.includes('squat') || typeLower.includes('sled')) { active.legs = true; }
-    if (typeLower.includes('core') || typeLower.includes('abdos') || typeLower.includes('skills')) { active.abs = true; }
-    if (typeLower.includes('hyrox') || typeLower.includes('full')) { active.legs = true; active.cardio = true; active.shoulders = true; }
+    if (typeLower.includes('push') || typeLower.includes('force') || typeLower.includes('pecs') || typeLower.includes('upper') || typeLower.includes('pompes') || typeLower.includes('dips')) { active.chest = true; active.shoulders = true; active.arms = true; }
+    if (typeLower.includes('pull') || typeLower.includes('dos') || typeLower.includes('back') || typeLower.includes('tractions') || typeLower.includes('row')) { active.back = true; active.arms = true; }
+    if (typeLower.includes('legs') || typeLower.includes('jambes') || typeLower.includes('squat') || typeLower.includes('sled') || typeLower.includes('fentes')) { active.legs = true; }
+    if (typeLower.includes('core') || typeLower.includes('abdos') || typeLower.includes('skills') || typeLower.includes('gainage')) { active.abs = true; }
+    if (typeLower.includes('hyrox') || typeLower.includes('full') || typeLower.includes('burpees')) { active.legs = true; active.cardio = true; active.shoulders = true; active.abs = true; }
     return active;
 };
 
@@ -71,11 +71,7 @@ export const getTimeConstraints = (distance: string) => {
 };
 
 export const getPaceForWeek = (week: number, totalWeeks: number, goalTime: number, startPercent: number, difficultyFactor: number, distanceKm: number, currentEstimatedTime: number | null = null) => {
-    // goalTime est en minutes
     const racePace = goalTime / distanceKm;
-    
-    // Si l'utilisateur a fourni un temps actuel, on l'utilise pour définir le point de départ exact
-    // Sinon on utilise le startPercent par défaut (ex: 15% plus lent)
     let startFactor = 1 + (startPercent / 100);
     
     if (currentEstimatedTime && currentEstimatedTime > goalTime) {
@@ -84,21 +80,14 @@ export const getPaceForWeek = (week: number, totalWeeks: number, goalTime: numbe
     }
 
     const progressRatio = (week - 1) / Math.max(1, totalWeeks - 1);
-    
-    // Interpolation linéaire entre le StartFactor (niveau actuel) et 1.0 (objectif)
     const currentFactor = startFactor - (progressRatio * (startFactor - 1.0));
-    
-    // On applique le facteur de difficulté global (ajustement utilisateur en cours de plan)
-    // difficultyFactor : 1.0 = normal, 1.05 = plus facile (plus lent), 0.95 = plus dur
     const adjustedFactor = currentFactor * difficultyFactor;
-
     const currentRacePace = racePace * adjustedFactor;
     
     let easyRatio = 1.35; 
     let thresholdRatio = 1.08;
     let intervalRatio = 0.90;
 
-    // Adaptation physio selon la distance
     if (distanceKm === 5) {
         easyRatio = 1.45; 
         thresholdRatio = 1.15; 
@@ -131,9 +120,8 @@ export const getPaceForWeek = (week: number, totalWeeks: number, goalTime: numbe
     };
 };
 
-// Formule de Haversine pour calculer la distance entre deux coords GPS
 export const calculateHaversineDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-  const R = 6371; // Rayon de la terre en km
+  const R = 6371; 
   const dLat = (lat2 - lat1) * (Math.PI / 180);
   const dLon = (lon2 - lon1) * (Math.PI / 180);
   const a = 
@@ -142,5 +130,19 @@ export const calculateHaversineDistance = (lat1: number, lon1: number, lat2: num
     Math.sin(dLon / 2) * Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   const d = R * c; 
-  return d; // Distance en km
+  return d; 
+};
+
+// --- NOUVEAU : Chemins SVG Réalistes pour le Corps ---
+export const BODY_PATHS = {
+    head: "M50 15 C50 10 46 5 41 5 C36 5 32 10 32 15 C32 20 36 25 41 25 C46 25 50 20 50 15 Z",
+    neck: "M38 24 L44 24 L44 28 L38 28 Z",
+    traps: "M32 28 Q 41 24 50 28 L 54 32 L 28 32 Z", // Trapèzes
+    shoulders: "M28 32 C 20 32 18 40 18 45 C 18 50 22 52 26 48 L 28 32 M54 32 C 62 32 64 40 64 45 C 64 50 60 52 56 48 L 54 32", // Deltoïdes
+    chest: "M30 32 L52 32 L50 50 C50 55 32 55 32 50 L30 32 M32 50 Q 41 55 50 50", // Pectoraux
+    arms: "M18 45 C 15 55 15 65 18 70 C 22 70 24 60 26 48 M64 45 C 67 55 67 65 64 70 C 60 70 58 60 56 48", // Bras (Biceps/Triceps)
+    forearms: "M18 70 L 16 90 L 20 90 L 22 70 M64 70 L 66 90 L 62 90 L 60 70",
+    abs: "M32 50 L50 50 L48 75 L34 75 Z", // Abdominaux
+    legs: "M34 75 L30 115 L40 115 L42 75 M48 75 L52 115 L42 115 L40 75 M30 115 L32 150 L38 150 L40 115 M52 115 L50 150 L44 150 L42 115", // Cuisses et Mollets
+    back: "M30 32 L52 32 L54 55 L28 55 Z" // Lats (pour la vue arrière simplifiée ou mix)
 };

@@ -3,7 +3,7 @@ import {
   X, ListPlus, Search, Dumbbell, Plus, Clock, Footprints, 
   Minus, SkipForward, Check, Square, Activity, Timer, 
   Brain, Target, CheckCircle, Download, Camera, Play, Pause, 
-  StopCircle, MapPin, Navigation, AlertTriangle
+  StopCircle, MapPin, Navigation, AlertTriangle, UploadCloud
 } from 'lucide-react';
 import { STRENGTH_PROTOCOLS, RUN_PROTOCOLS } from '../data/protocols';
 import { parseRestTime, getMuscleActivation, formatStopwatch, calculateHaversineDistance, formatPace } from '../utils/helpers';
@@ -11,13 +11,14 @@ import { MuscleHeatmap } from './Visuals';
 import { downloadShareImage, downloadTCX } from '../utils/logic';
 
 // --- COMPOSANT TRACKER GPS ---
-export const RunTracker = ({ onFinish, onCancel }: { onFinish: (duration: number, distance: number) => void, onCancel: () => void }) => {
+export const RunTracker = ({ onFinish, onCancel }: { onFinish: (duration: number, distance: number, route: any[]) => void, onCancel: () => void }) => {
     const [status, setStatus] = useState<'idle' | 'running' | 'paused'>('idle');
     const [time, setTime] = useState(0);
     const [distance, setDistance] = useState(0); // en km
     const [currentPace, setCurrentPace] = useState(0); // min/km
     const [gpsError, setGpsError] = useState<string | null>(null);
     const [accuracy, setAccuracy] = useState<number | null>(null);
+    const [route, setRoute] = useState<any[]>([]); // Stockage du tracé
     
     const watchIdRef = useRef<number | null>(null);
     const lastPosRef = useRef<{lat: number, lon: number, time: number} | null>(null);
@@ -59,6 +60,7 @@ export const RunTracker = ({ onFinish, onCancel }: { onFinish: (duration: number
                     if (accuracy > 30) return;
 
                     const now = Date.now();
+                    let distToAdd = 0;
 
                     if (lastPosRef.current) {
                         const dist = calculateHaversineDistance(
@@ -71,6 +73,7 @@ export const RunTracker = ({ onFinish, onCancel }: { onFinish: (duration: number
                         // Filtrage simple : on n'ajoute que si on a bougé de plus de 5m (bruit GPS stationnaire)
                         // ou si la vitesse reportée par le GPS est significative
                         if (dist > 0.005 || (speed && speed > 0.5)) {
+                            distToAdd = dist;
                             setDistance(d => d + dist);
                             
                             // Calcul allure instantanée lissée (optionnel, ici on utilise la vitesse native si dispo)
@@ -86,6 +89,8 @@ export const RunTracker = ({ onFinish, onCancel }: { onFinish: (duration: number
                         }
                     }
 
+                    const newPoint = { lat: latitude, lon: longitude, time: now, dist: (distance + distToAdd) };
+                    setRoute(prev => [...prev, newPoint]); // Ajout au tracé
                     lastPosRef.current = { lat: latitude, lon: longitude, time: now };
                 },
                 (err) => {
@@ -107,13 +112,13 @@ export const RunTracker = ({ onFinish, onCancel }: { onFinish: (duration: number
                 navigator.geolocation.clearWatch(watchIdRef.current);
             }
         };
-    }, [status]);
+    }, [status, distance]);
 
     const handleStop = () => {
         setStatus('paused');
         // Petite confirmation
         if (window.confirm("Terminer la séance et sauvegarder ?")) {
-            onFinish(time, distance);
+            onFinish(time, distance, route);
         }
     };
 
@@ -508,6 +513,18 @@ export const SessionHistoryDetail = ({ session, exercisesLog, onClose }: any) =>
                         {(!session.exercises || session.exercises.length === 0) && (
                             <div className="text-center text-xs text-slate-400 italic py-4">Détails des exercices non disponibles pour ce type de séance.</div>
                         )}
+                        
+                        <button 
+                            onClick={() => {
+                                const durationSec = (session.durationMin || 45) * 60; 
+                                const gpsRoute = exercisesLog[`${session.id}_gps`] || []; // Récupération du tracé GPS
+                                downloadTCX(session, durationSec, new Date(), exercisesLog, gpsRoute);
+                                setTimeout(() => window.open('https://www.strava.com/upload/select', '_blank'), 1000);
+                            }}
+                            className="w-full py-3 bg-[#fc4c02] text-white font-bold rounded-xl hover:bg-[#e34402] transition shadow-sm flex items-center justify-center gap-2 mt-4"
+                        >
+                            <UploadCloud size={18}/> Exporter vers Strava
+                        </button>
                     </div>
                 </div>
             </div>
