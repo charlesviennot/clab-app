@@ -6,14 +6,15 @@ import {
   Info, BarChart3, GraduationCap, ShieldCheck, Layers, FlaskConical,
   Coffee, Smartphone, Medal, Play, Download, Camera, Footprints,
   Sparkles, Dumbbell, History, Utensils, BookOpen, TrendingUp, Activity,
-  Ruler, Square, Brain, Timer, Home, HeartPulse
+  Ruler, Square, Brain, Timer, Home, HeartPulse, Save, Upload, Navigation,
+  UploadCloud
 } from 'lucide-react';
 import { LOGO_URL, DONATION_URL } from './constants';
 import { RUN_PROTOCOLS, STRENGTH_PROTOCOLS } from './data/protocols';
 import { calcDist, formatPace, formatGoalTime, formatStopwatch, getMuscleActivation, getTimeConstraints, getPaceForWeek } from './utils/helpers';
 import { getRecommendedSchedule, downloadShareImage, downloadTCX } from './utils/logic';
 import { RpeBadge, WorkoutViz, LiveSessionTimer, InteractiveInterference, PolarizationChart, WeeklyVolumeChart, BanisterChart, TrimpChart, InstallGuide } from './components/Visuals';
-import { ExerciseCatalog, ExerciseModal, SessionHistoryDetail } from './components/Modals';
+import { ExerciseCatalog, ExerciseModal, SessionHistoryDetail, RunTracker } from './components/Modals';
 import { NutritionView } from './components/Nutrition';
 
 export default function App() {
@@ -49,7 +50,9 @@ export default function App() {
   const [activeTimerSessionId, setActiveTimerSessionId] = useState<string | null>(null); 
   const [lastCompletedData, setLastCompletedData] = useState<any>(null); 
   const [selectedHistorySession, setSelectedHistorySession] = useState<any>(null);
+  const [showRunTracker, setShowRunTracker] = useState<string | null>(null); // Stores sessionId being tracked
   const currentTimerRef = useRef(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleDistanceSelect = (dist: string) => { 
       let defaultTime = 50; 
@@ -113,7 +116,43 @@ export default function App() {
   const handleTimerFinish = (sessionId: string, duration: number) => { toggleSession(sessionId); setActiveTimerSessionId(null); if(currentTimerRef) currentTimerRef.current = 0; let sessionData = null; for (const week of plan) { const s = week.sessions.find((sess: any) => sess.id === sessionId); if (s) { sessionData = s; break; } } if (sessionData) { setLastCompletedData({ session: sessionData, duration: duration, date: new Date() }); } };
   const unvalidateSession = (id: string) => { const newSet = new Set(completedSessions); if (newSet.has(id)) { newSet.delete(id); setCompletedSessions(newSet); } };
   const toggleExercise = (exerciseUniqueId: string) => { const newSet = new Set(completedExercises); if (newSet.has(exerciseUniqueId)) { newSet.delete(exerciseUniqueId); } else { newSet.add(exerciseUniqueId); } setCompletedExercises(newSet); };
-  const handleSessionCompleteFromModal = (sessionId: string, isExercise = false, data: any = null) => { if (isExercise) { toggleExercise(sessionId); if (data) { setExercisesLog((prev: any) => ({...prev, [sessionId]: data})); } } else { if (!completedSessions.has(sessionId)) { toggleSession(sessionId); } } };
+  
+  const handleSessionCompleteFromModal = (sessionId: string, isExercise = false, data: any = null) => { 
+      if (isExercise) { 
+          toggleExercise(sessionId); 
+          if (data) { setExercisesLog((prev: any) => ({...prev, [sessionId]: data})); } 
+      } else { 
+          if (!completedSessions.has(sessionId)) { toggleSession(sessionId); }
+          // Si on reçoit des données GPS (duration, distance) on les traite
+          if (data && (data.customDuration || data.customDistance)) {
+              let sessionData = null;
+              for (const week of plan) { 
+                  const s = week.sessions.find((sess: any) => sess.id === sessionId); 
+                  if (s) { sessionData = s; break; } 
+              }
+              if (sessionData) {
+                  // On écrase les données théoriques avec les réelles pour l'affichage final
+                  const realSessionData = { ...sessionData };
+                  if (data.customDistance) realSessionData.distance = data.customDistance;
+                  
+                  setLastCompletedData({ 
+                      session: realSessionData, 
+                      duration: data.customDuration || (sessionData.durationMin * 60), 
+                      date: new Date() 
+                  });
+              }
+          }
+      } 
+  };
+
+  const handleTrackerFinish = (duration: number, distance: number) => {
+      if (showRunTracker) {
+          const distStr = distance.toFixed(2) + " km";
+          handleSessionCompleteFromModal(showRunTracker, false, { customDuration: duration, customDistance: distStr });
+          setShowRunTracker(null);
+      }
+  };
+  
   const adaptDifficulty = (weekNum: number, action: string) => { let message = ""; let type = 'neutral'; if (action === 'easier') { const newFactor = userData.difficultyFactor + 0.05; setUserData((prev: any) => ({ ...prev, difficultyFactor: newFactor })); message = "Plan adapté : Allures ralenties de 5% pour la suite (récupération)."; type = 'warning'; } else if (action === 'harder') { const newFactor = Math.max(0.8, userData.difficultyFactor - 0.05); setUserData((prev: any) => ({ ...prev, difficultyFactor: newFactor })); message = "Plan adapté : Allures accélérées de 5% pour la suite (performance) !"; type = 'success'; } else { message = "Semaine validée ! Maintien de la progression prévue."; type = 'success'; } setFeedbackMessage({ text: message, type }); if (weekNum < userData.durationWeeks) setExpandedWeek(weekNum + 1); else setExpandedWeek(null); window.scrollTo({ top: 0, behavior: 'smooth' }); };
   const handleDayClick = (daySessionIds: string[]) => { if (!daySessionIds || daySessionIds.length === 0) { setFilteredSessionIds(null); setExpandedSession(null); return; } if (filteredSessionIds && JSON.stringify(filteredSessionIds) === JSON.stringify(daySessionIds)) { setFilteredSessionIds(null); setExpandedSession(null); } else { setFilteredSessionIds(daySessionIds); if (daySessionIds.length > 0) { setExpandedSession(daySessionIds[0]); } } };
   
@@ -132,6 +171,58 @@ export default function App() {
         raceDate: dateStr,
         durationWeeks: Math.max(1, diffWeeks)
     });
+  };
+
+  // --- NOUVELLES FONCTIONS DE SAUVEGARDE MANUELLE ---
+  const handleExportData = () => {
+    const dataToExport = {
+        userData,
+        plan,
+        completedSessions: Array.from(completedSessions),
+        completedExercises: Array.from(completedExercises),
+        exercisesLog,
+        nutritionLog,
+        timestamp: new Date().toISOString()
+    };
+    const blob = new Blob([JSON.stringify(dataToExport, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `clab_backup_${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportData = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const content = e.target?.result as string;
+            const parsed = JSON.parse(content);
+            
+            // Vérification basique du format
+            if (parsed.userData && parsed.plan) {
+                // Sauvegarde directe dans le localStorage
+                localStorage.setItem('clab_storage', JSON.stringify(parsed));
+                // Rechargement pour appliquer
+                alert("Données restaurées avec succès ! L'application va redémarrer.");
+                window.location.reload();
+            } else {
+                alert("Format de fichier invalide.");
+            }
+        } catch (err) {
+            console.error(err);
+            alert("Erreur lors de la lecture du fichier.");
+        }
+    };
+    reader.readAsText(file);
+    // Reset input
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const generatePlan = () => { 
@@ -303,6 +394,16 @@ export default function App() {
 
         {showInstallGuide && <InstallGuide onClose={() => setShowInstallGuide(false)} />}
 
+        {/* Global GPS Overlay */}
+        {showRunTracker && (
+            <div className="fixed inset-0 z-[100] bg-black">
+                <RunTracker 
+                    onFinish={handleTrackerFinish} 
+                    onCancel={() => setShowRunTracker(null)} 
+                />
+            </div>
+        )}
+
         {modalExercise && (
             <ExerciseModal 
                 exercise={modalExercise.data} 
@@ -340,9 +441,27 @@ export default function App() {
                             <div className="text-xs font-bold text-slate-400 uppercase">Calories (Est.)</div>
                             <div className="text-xl font-black text-slate-800">{Math.floor(lastCompletedData.duration / 60 * 10)}</div>
                         </div>
+                        {lastCompletedData.session.distance && (
+                            <div className="col-span-2 text-center mt-2 border-t border-slate-100 pt-2">
+                                <div className="text-xs font-bold text-slate-400 uppercase">Distance Réalisée</div>
+                                <div className="text-xl font-black text-indigo-600">{lastCompletedData.session.distance}</div>
+                            </div>
+                        )}
                     </div>
                     <div className="space-y-3">
-                        <button onClick={() => downloadTCX(lastCompletedData.session, lastCompletedData.duration, lastCompletedData.date, exercisesLog)} className="w-full py-4 bg-orange-500 text-white font-bold rounded-xl hover:bg-orange-600 transition shadow-lg shadow-orange-200 flex items-center justify-center gap-2"><Download size={20}/> Exporter pour Strava (.tcx)</button>
+                        <button 
+                            onClick={() => {
+                                downloadTCX(lastCompletedData.session, lastCompletedData.duration, lastCompletedData.date, exercisesLog);
+                                setTimeout(() => {
+                                    window.open('https://www.strava.com/upload/select', '_blank');
+                                }, 1000);
+                            }} 
+                            className="w-full py-4 bg-[#fc4c02] text-white font-bold rounded-xl hover:bg-[#e34402] transition shadow-lg flex items-center justify-center gap-2"
+                        >
+                            <UploadCloud size={20}/> Publier sur Strava
+                        </button>
+                        <div className="text-[10px] text-slate-400 text-center -mt-2 mb-2">Le fichier .tcx sera téléchargé, importez-le sur la page Strava qui s'ouvrira.</div>
+
                         <button onClick={() => downloadShareImage(lastCompletedData.session, lastCompletedData.duration, lastCompletedData.date)} className="w-full py-4 bg-slate-800 text-white font-bold rounded-xl hover:bg-slate-700 transition shadow-lg flex items-center justify-center gap-2"><Camera size={20}/> Télécharger le Visuel (Image)</button>
                         <button onClick={() => setLastCompletedData(null)} className="w-full py-3 text-slate-400 font-bold hover:text-slate-600 transition">Fermer</button>
                     </div>
@@ -699,15 +818,21 @@ export default function App() {
                                     {isExpandedSession && session.exercises && !isDone && (
                                         <div className="bg-slate-50 border-t border-slate-100 p-3 rounded-b-lg animate-in slide-in-from-top-2">
                                                  
-                                                {activeTimerSessionId === session.id ? (
-                                                    <LiveSessionTimer 
-                                                        timerRef={currentTimerRef}
-                                                        onFinish={(duration) => handleTimerFinish(session.id, duration)} 
-                                                    />
-                                                ) : (
-                                                    <button onClick={() => setActiveTimerSessionId(session.id)} className="w-full mb-4 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl flex items-center justify-center gap-2 font-bold text-sm shadow-md transition-all">
-                                                        <Play size={16} className="fill-white"/> Démarrer le Chrono
+                                                {session.category === 'run' ? (
+                                                    <button onClick={() => setShowRunTracker(session.id)} className="w-full mb-4 py-4 bg-slate-900 text-white rounded-xl flex items-center justify-center gap-2 font-black text-sm shadow-lg shadow-slate-900/20 hover:scale-[1.02] transition-all animate-pulse">
+                                                        <Navigation size={18} className="text-yellow-400"/> Lancer le Run GPS
                                                     </button>
+                                                ) : (
+                                                    activeTimerSessionId === session.id ? (
+                                                        <LiveSessionTimer 
+                                                            timerRef={currentTimerRef}
+                                                            onFinish={(duration) => handleTimerFinish(session.id, duration)} 
+                                                        />
+                                                    ) : (
+                                                        <button onClick={() => setActiveTimerSessionId(session.id)} className="w-full mb-4 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl flex items-center justify-center gap-2 font-bold text-sm shadow-md transition-all">
+                                                            <Play size={16} className="fill-white"/> Démarrer le Chrono
+                                                        </button>
+                                                    )
                                                 )}
 
                                                 <h4 className="text-[10px] font-bold uppercase text-slate-400 mb-2">Protocole Scientifique (Cliquer pour info)</h4>
@@ -893,6 +1018,22 @@ export default function App() {
             </a>
             
             <button onClick={() => setShowInstallGuide(true)} className="text-[10px] font-bold text-indigo-600 hover:underline mb-4">Comment installer l'App ?</button>
+
+            <div className="flex gap-4 mb-4">
+                 <button onClick={handleExportData} className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-500 hover:text-indigo-600 hover:border-indigo-200 transition flex items-center gap-1 shadow-sm">
+                    <Save size={14}/> Sauvegarder (Export)
+                 </button>
+                 <label className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-500 hover:text-green-600 hover:border-green-200 transition flex items-center gap-1 shadow-sm cursor-pointer">
+                    <Upload size={14}/> Charger (Import)
+                    <input 
+                        type="file" 
+                        ref={fileInputRef}
+                        accept=".json" 
+                        onChange={handleImportData} 
+                        className="hidden" 
+                    />
+                 </label>
+            </div>
 
             <p className="text-slate-500 font-medium text-sm">Créé par <span className="bg-gradient-to-r from-indigo-600 to-rose-500 bg-clip-text text-transparent font-black">Charles Viennot</span></p>
             <p className="text-slate-400 text-xs mt-1 uppercase tracking-widest flex items-center justify-center gap-2"><GraduationCap size={12} /> Étudiant en Ingénierie du Sport</p>

@@ -2,12 +2,199 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   X, ListPlus, Search, Dumbbell, Plus, Clock, Footprints, 
   Minus, SkipForward, Check, Square, Activity, Timer, 
-  Brain, Target, CheckCircle, Download, Camera
+  Brain, Target, CheckCircle, Download, Camera, Play, Pause, 
+  StopCircle, MapPin, Navigation, AlertTriangle
 } from 'lucide-react';
 import { STRENGTH_PROTOCOLS, RUN_PROTOCOLS } from '../data/protocols';
-import { parseRestTime, getMuscleActivation, formatStopwatch } from '../utils/helpers';
+import { parseRestTime, getMuscleActivation, formatStopwatch, calculateHaversineDistance, formatPace } from '../utils/helpers';
 import { MuscleHeatmap } from './Visuals';
 import { downloadShareImage, downloadTCX } from '../utils/logic';
+
+// --- COMPOSANT TRACKER GPS ---
+export const RunTracker = ({ onFinish, onCancel }: { onFinish: (duration: number, distance: number) => void, onCancel: () => void }) => {
+    const [status, setStatus] = useState<'idle' | 'running' | 'paused'>('idle');
+    const [time, setTime] = useState(0);
+    const [distance, setDistance] = useState(0); // en km
+    const [currentPace, setCurrentPace] = useState(0); // min/km
+    const [gpsError, setGpsError] = useState<string | null>(null);
+    const [accuracy, setAccuracy] = useState<number | null>(null);
+    
+    const watchIdRef = useRef<number | null>(null);
+    const lastPosRef = useRef<{lat: number, lon: number, time: number} | null>(null);
+    const timerIntervalRef = useRef<any>(null);
+
+    // Gestion du Chronomètre
+    useEffect(() => {
+        if (status === 'running') {
+            timerIntervalRef.current = setInterval(() => {
+                setTime(t => t + 1);
+            }, 1000);
+        } else {
+            clearInterval(timerIntervalRef.current);
+        }
+        return () => clearInterval(timerIntervalRef.current);
+    }, [status]);
+
+    // Gestion du GPS
+    useEffect(() => {
+        if (status === 'running') {
+            if (!navigator.geolocation) {
+                setGpsError("Géolocalisation non supportée par ce navigateur.");
+                return;
+            }
+
+            const options = {
+                enableHighAccuracy: true,
+                timeout: 5000,
+                maximumAge: 0
+            };
+
+            watchIdRef.current = navigator.geolocation.watchPosition(
+                (position) => {
+                    const { latitude, longitude, accuracy, speed } = position.coords;
+                    setAccuracy(accuracy);
+                    setGpsError(null);
+
+                    // On ignore les points avec une précision trop faible (> 30m) pour éviter les sauts
+                    if (accuracy > 30) return;
+
+                    const now = Date.now();
+
+                    if (lastPosRef.current) {
+                        const dist = calculateHaversineDistance(
+                            lastPosRef.current.lat, 
+                            lastPosRef.current.lon, 
+                            latitude, 
+                            longitude
+                        );
+
+                        // Filtrage simple : on n'ajoute que si on a bougé de plus de 5m (bruit GPS stationnaire)
+                        // ou si la vitesse reportée par le GPS est significative
+                        if (dist > 0.005 || (speed && speed > 0.5)) {
+                            setDistance(d => d + dist);
+                            
+                            // Calcul allure instantanée lissée (optionnel, ici on utilise la vitesse native si dispo)
+                            // speed est en m/s. Pace = (1000/speed) / 60
+                            if (speed && speed > 0) {
+                                const paceMinKm = (1000 / speed) / 60;
+                                setCurrentPace(paceMinKm);
+                            } else if (dist > 0) {
+                                // Fallback calcul manuel si speed n'est pas dispo
+                                const timeDiffMin = (now - lastPosRef.current.time) / 1000 / 60;
+                                if(timeDiffMin > 0) setCurrentPace(timeDiffMin / dist);
+                            }
+                        }
+                    }
+
+                    lastPosRef.current = { lat: latitude, lon: longitude, time: now };
+                },
+                (err) => {
+                    console.error(err);
+                    setGpsError("Signal GPS faible ou accès refusé.");
+                },
+                options
+            );
+
+        } else {
+            if (watchIdRef.current !== null) {
+                navigator.geolocation.clearWatch(watchIdRef.current);
+                watchIdRef.current = null;
+            }
+        }
+
+        return () => {
+            if (watchIdRef.current !== null) {
+                navigator.geolocation.clearWatch(watchIdRef.current);
+            }
+        };
+    }, [status]);
+
+    const handleStop = () => {
+        setStatus('paused');
+        // Petite confirmation
+        if (window.confirm("Terminer la séance et sauvegarder ?")) {
+            onFinish(time, distance);
+        }
+    };
+
+    const avgPace = distance > 0 ? (time / 60) / distance : 0;
+
+    return (
+        <div className="flex flex-col h-full bg-slate-900 text-white rounded-2xl overflow-hidden relative">
+            <div className="absolute top-4 right-4 z-50">
+                <button onClick={onCancel} className="p-2 bg-white/20 text-white rounded-full hover:bg-white/30 transition"><X size={24}/></button>
+            </div>
+
+            {/* Header Map Visualization (Simulé ou Placeholder pour l'instant) */}
+            <div className="flex-1 bg-slate-800 relative flex items-center justify-center overflow-hidden">
+                <div className="absolute inset-0 opacity-20" style={{backgroundImage: 'radial-gradient(#ffffff 1px, transparent 1px)', backgroundSize: '20px 20px'}}></div>
+                
+                {status === 'idle' ? (
+                    <div className="text-center p-6 animate-in zoom-in">
+                        <div className="w-20 h-20 bg-indigo-500 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg shadow-indigo-500/50">
+                            <Navigation size={40} className="text-white"/>
+                        </div>
+                        <h3 className="text-xl font-bold mb-2">Prêt à courir ?</h3>
+                        <p className="text-sm text-slate-400">Le GPS suivra votre parcours, distance et allure.</p>
+                        {gpsError && <p className="text-xs text-rose-400 mt-2 bg-rose-900/50 p-2 rounded"><AlertTriangle size={12} className="inline mr-1"/>{gpsError}</p>}
+                    </div>
+                ) : (
+                     <div className="text-center w-full">
+                        <div className="text-[10px] text-slate-400 font-mono mb-2 flex items-center justify-center gap-2">
+                            {accuracy ? (accuracy < 15 ? <span className="text-green-400 flex items-center gap-1"><CheckCircle size={10}/> GPS Excellent</span> : <span className="text-amber-400 flex items-center gap-1"><Activity size={10}/> GPS Moyen ({Math.round(accuracy)}m)</span>) : "Recherche GPS..."}
+                        </div>
+                        <div className="font-black text-8xl font-mono tracking-tighter tabular-nums text-white drop-shadow-xl">
+                            {formatStopwatch(time)}
+                        </div>
+                        <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Durée Totale</div>
+                     </div>
+                )}
+            </div>
+
+            {/* Stats Grid */}
+            <div className="bg-slate-900 p-6 pb-8">
+                <div className="grid grid-cols-2 gap-4 mb-8">
+                    <div className="bg-slate-800 p-4 rounded-2xl border border-slate-700">
+                        <div className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-1 mb-1"><MapPin size={12}/> Distance</div>
+                        <div className="text-3xl font-black text-white">{distance.toFixed(2)} <span className="text-sm font-medium text-slate-500">km</span></div>
+                    </div>
+                    <div className="bg-slate-800 p-4 rounded-2xl border border-slate-700">
+                        <div className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-1 mb-1"><Activity size={12}/> Allure Moy.</div>
+                        <div className="text-3xl font-black text-white">{formatPace(avgPace)} <span className="text-sm font-medium text-slate-500">/km</span></div>
+                    </div>
+                </div>
+
+                {/* Controls */}
+                <div className="flex items-center justify-center gap-6">
+                    {status === 'running' ? (
+                        <>
+                            <button onClick={() => setStatus('paused')} className="w-20 h-20 bg-yellow-500 hover:bg-yellow-400 rounded-full flex items-center justify-center text-yellow-950 shadow-lg shadow-yellow-500/20 transition-all active:scale-95">
+                                <Pause size={32} fill="currentColor"/>
+                            </button>
+                             <button onClick={handleStop} className="w-20 h-20 bg-rose-600 hover:bg-rose-500 rounded-full flex items-center justify-center text-white shadow-lg shadow-rose-600/20 transition-all active:scale-95">
+                                <StopCircle size={32} fill="currentColor"/>
+                            </button>
+                        </>
+                    ) : status === 'paused' ? (
+                         <>
+                            <button onClick={() => setStatus('running')} className="w-20 h-20 bg-green-500 hover:bg-green-400 rounded-full flex items-center justify-center text-white shadow-lg shadow-green-500/20 transition-all active:scale-95">
+                                <Play size={32} fill="currentColor"/>
+                            </button>
+                             <button onClick={handleStop} className="w-20 h-20 bg-rose-600 hover:bg-rose-500 rounded-full flex items-center justify-center text-white shadow-lg shadow-rose-600/20 transition-all active:scale-95">
+                                <StopCircle size={32} fill="currentColor"/>
+                            </button>
+                        </>
+                    ) : (
+                        <button onClick={() => setStatus('running')} className="w-full py-5 bg-indigo-600 hover:bg-indigo-500 rounded-2xl text-white font-black text-xl shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-3 transition-all active:scale-98">
+                            <Play size={24} fill="currentColor"/> DÉMARRER
+                        </button>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
 
 export const ExerciseCatalog = ({ onClose, onSelect }: {onClose: () => void, onSelect: (ex: any) => void}) => {
   const [activeCategory, setActiveCategory] = useState('Jambes');
@@ -164,9 +351,9 @@ export const ExerciseModal = ({ exercise, exerciseId, category, onClose, onCompl
     }
   };
 
-  const handleComplete = () => {
+  const handleComplete = (data: any = null) => {
       if (isRun) {
-          onComplete(exerciseId); 
+          onComplete(exerciseId, false, data); 
       } else {
           const uniqueExerciseId = `${exerciseId}-ex-${exerciseIndex}`;
           onComplete(uniqueExerciseId, true, { weights }); 
@@ -254,8 +441,17 @@ export const ExerciseModal = ({ exercise, exerciseId, category, onClose, onCompl
                  <div className="flex items-center gap-2 mb-2"><div className="bg-emerald-100 p-1.5 rounded-lg text-emerald-600"><Target size={18}/></div><h4 className="font-bold text-slate-800">Objectif Physiologique</h4></div>
                 <p className="text-xs font-medium text-slate-500">{exercise.note}</p>
             </div>
-            {(isRun || allSetsDone) && (
-                <button onClick={handleComplete} className="w-full py-4 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 transition shadow-lg shadow-green-200 mt-2 animate-in slide-in-from-bottom-2 fade-in">{isRun ? "Terminer la séance" : "Valider l'exercice"}</button>
+
+            {isRun ? (
+                 <div className="space-y-3 pt-2">
+                    <button onClick={() => handleComplete()} className="w-full py-4 bg-green-500 text-white border-2 border-green-600 font-bold rounded-xl hover:bg-green-600 transition text-sm flex items-center justify-center gap-2">
+                        <CheckCircle size={18}/> J'ai terminé cet exercice
+                    </button>
+                 </div>
+            ) : (
+                allSetsDone && (
+                    <button onClick={() => handleComplete()} className="w-full py-4 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 transition shadow-lg shadow-green-200 mt-2 animate-in slide-in-from-bottom-2 fade-in">Valider l'exercice</button>
+                )
             )}
         </div>
       </div>
