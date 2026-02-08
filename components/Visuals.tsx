@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Zap, Dumbbell, Activity, Flame, Clock, X, Smartphone, Share, Pause, Play, StopCircle } from 'lucide-react';
+import { Zap, Dumbbell, Activity, Flame, Clock, X, Smartphone, Share, Pause, Play, StopCircle, User, Settings, Scale, Ruler, Calendar as CalIcon, TrendingUp, TrendingDown, Utensils } from 'lucide-react';
 import { formatStopwatch, getMuscleActivation, BODY_PATHS } from '../utils/helpers';
 
 export const RpeBadge = ({ level }: { level: number }) => {
@@ -32,27 +32,18 @@ export const MuscleHeatmap = ({ type, exercises }: { type: string, exercises?: a
     const inactiveColor = "#334155"; // Slate foncé (plus discret sur fond sombre)
     const strokeColor = "rgba(255,255,255,0.1)";
 
-    // Mapping des chemins
     return (
         <div className="flex justify-center p-4">
             <svg width="120" height="220" viewBox="0 0 82 160" fill="none" xmlns="http://www.w3.org/2000/svg" style={{filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.3))'}}>
-                {/* Tête */}
                 <path d={BODY_PATHS.head} fill={inactiveColor} stroke={strokeColor} strokeWidth="0.5"/>
                 <path d={BODY_PATHS.neck} fill={inactiveColor} stroke={strokeColor} strokeWidth="0.5"/>
-                
-                {/* Haut du corps */}
                 <path d={BODY_PATHS.traps} fill={active.shoulders || active.back ? secondaryColor : inactiveColor} stroke={strokeColor} strokeWidth="0.5"/>
                 <path d={BODY_PATHS.shoulders} fill={active.shoulders ? primaryColor : inactiveColor} stroke={strokeColor} strokeWidth="0.5"/>
                 <path d={BODY_PATHS.chest} fill={active.chest ? primaryColor : inactiveColor} stroke={strokeColor} strokeWidth="0.5"/>
                 <path d={BODY_PATHS.abs} fill={active.abs || active.cardio ? secondaryColor : inactiveColor} stroke={strokeColor} strokeWidth="0.5"/>
-                
-                {/* Bras */}
                 <path d={BODY_PATHS.arms} fill={active.arms ? primaryColor : inactiveColor} stroke={strokeColor} strokeWidth="0.5"/>
                 <path d={BODY_PATHS.forearms} fill={active.arms ? secondaryColor : inactiveColor} stroke={strokeColor} strokeWidth="0.5"/>
-
-                {/* Jambes */}
                 <path d={BODY_PATHS.legs} fill={active.legs ? primaryColor : inactiveColor} stroke={strokeColor} strokeWidth="0.5"/>
-                
                 {active.cardio && (
                     <circle cx="41" cy="40" r="2" fill="#fbbf24" className="animate-ping" style={{opacity: 0.8}}/>
                 )}
@@ -103,6 +94,142 @@ export const LiveSessionTimer = ({ onFinish, timerRef }: { onFinish: (s: number)
                 </div>
             </div>
             <p className="text-[10px] text-slate-400 mt-2 font-mono uppercase text-center">Enregistrement en cours...</p>
+        </div>
+    );
+};
+
+export const ProfileView = ({ userData, setUserData, stats }: any) => {
+    const bmi = userData.weight && userData.height ? (userData.weight / ((userData.height / 100) ** 2)).toFixed(1) : null;
+    let bmiLabel = "";
+    let bmiColor = "";
+    if (bmi) {
+        const b = parseFloat(bmi);
+        if (b < 18.5) { bmiLabel = "Maigreur"; bmiColor = "text-blue-500"; }
+        else if (b < 25) { bmiLabel = "Normal"; bmiColor = "text-green-500"; }
+        else if (b < 30) { bmiLabel = "Surpoids"; bmiColor = "text-orange-500"; }
+        else { bmiLabel = "Obésité"; bmiColor = "text-red-500"; }
+    }
+
+    return (
+        <div className="space-y-6 animate-in slide-in-from-left-4">
+            {/* Header / Identity */}
+            <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 flex items-center gap-6 relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50 rounded-full -mr-10 -mt-10 opacity-50 pointer-events-none"></div>
+                <div className="w-20 h-20 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 shadow-inner shrink-0">
+                    <User size={40} />
+                </div>
+                <div className="flex-1 z-10">
+                    <div className="text-xs font-bold text-slate-400 uppercase mb-1">PROFIL ATHLÈTE</div>
+                    <input 
+                        type="text" 
+                        value={userData.name || "Athlète"} 
+                        onChange={(e) => setUserData({...userData, name: e.target.value})}
+                        className="text-2xl font-black text-slate-800 bg-transparent border-b border-transparent hover:border-slate-200 focus:border-indigo-500 outline-none transition w-full"
+                    />
+                    <div className="flex gap-4 mt-2 text-xs font-bold text-slate-500">
+                        <span className="flex items-center gap-1"><Activity size={14} className="text-indigo-500"/> {stats?.sessionsDone || 0} Séances</span>
+                        <span className="flex items-center gap-1"><Ruler size={14} className="text-rose-500"/> {stats?.totalKm || 0} km</span>
+                    </div>
+                </div>
+            </div>
+
+            {/* Biometrics Form */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+                <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-4"><Settings size={18} className="text-indigo-600"/> Biométrie</h3>
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase">Poids (kg)</label>
+                        <div className="flex items-center bg-slate-50 rounded-xl px-3 py-2 border border-slate-200 focus-within:border-indigo-500 transition">
+                            <Scale size={16} className="text-slate-400 mr-2"/>
+                            <input type="number" value={userData.weight} onChange={(e) => setUserData({...userData, weight: parseFloat(e.target.value)})} className="w-full bg-transparent font-bold text-slate-700 outline-none"/>
+                        </div>
+                    </div>
+                    <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase">Taille (cm)</label>
+                        <div className="flex items-center bg-slate-50 rounded-xl px-3 py-2 border border-slate-200 focus-within:border-indigo-500 transition">
+                            <Ruler size={16} className="text-slate-400 mr-2"/>
+                            <input type="number" value={userData.height} onChange={(e) => setUserData({...userData, height: parseFloat(e.target.value)})} className="w-full bg-transparent font-bold text-slate-700 outline-none"/>
+                        </div>
+                    </div>
+                    <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase">Âge</label>
+                        <div className="flex items-center bg-slate-50 rounded-xl px-3 py-2 border border-slate-200 focus-within:border-indigo-500 transition">
+                            <CalIcon size={16} className="text-slate-400 mr-2"/>
+                            <input type="number" value={userData.age} onChange={(e) => setUserData({...userData, age: parseFloat(e.target.value)})} className="w-full bg-transparent font-bold text-slate-700 outline-none"/>
+                        </div>
+                    </div>
+                    <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase">Genre</label>
+                        <select value={userData.gender} onChange={(e) => setUserData({...userData, gender: e.target.value})} className="w-full bg-slate-50 rounded-xl px-3 py-2.5 border border-slate-200 font-bold text-slate-700 outline-none text-sm appearance-none focus:border-indigo-500 transition">
+                            <option value="male">Homme</option>
+                            <option value="female">Femme</option>
+                        </select>
+                    </div>
+                </div>
+                {bmi && (
+                    <div className="mt-4 p-3 bg-slate-50 rounded-xl flex justify-between items-center border border-slate-100">
+                        <span className="text-xs font-bold text-slate-500">IMC (Indice Masse Corporelle)</span>
+                        <div className="text-right">
+                            <span className="block font-black text-lg text-slate-800">{bmi}</span>
+                            <span className={`text-[10px] font-bold uppercase ${bmiColor}`}>{bmiLabel}</span>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* Progression & Charts */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+                <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-6"><TrendingUp size={18} className="text-indigo-600"/> Évolution</h3>
+                
+                <div className="flex items-center justify-center mb-8">
+                     <div className="relative w-32 h-32">
+                        <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
+                            <circle cx="50" cy="50" r="45" fill="none" stroke="#f1f5f9" strokeWidth="8" />
+                            <circle 
+                                cx="50" cy="50" r="45" fill="none" stroke="#4f46e5" strokeWidth="8" 
+                                strokeDasharray="283" 
+                                strokeDashoffset={283 - ((stats?.progress || 0) / 100 * 283)} 
+                                strokeLinecap="round"
+                            />
+                        </svg>
+                        <div className="absolute inset-0 flex flex-col items-center justify-center">
+                            <span className="text-3xl font-black text-slate-800">{stats?.progress || 0}%</span>
+                            <span className="text-[10px] font-bold text-slate-400 uppercase">Plan</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <h4 className="text-xs font-bold text-slate-500 uppercase mb-3">Volume Hebdomadaire</h4>
+                    <WeeklyVolumeChart plannedData={stats?.weeklyVolume || []} realizedData={stats?.realizedWeeklyVolume || []} />
+                </div>
+            </div>
+
+            {/* Nutrition Goal Selector */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+                <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-4"><Utensils size={18} className="text-indigo-600"/> Objectif Nutrition</h3>
+                <div className="flex gap-2">
+                    {[
+                        {id: 'cut', label: 'Sèche', icon: TrendingDown, color: 'text-amber-500'},
+                        {id: 'maintain', label: 'Maintien', icon: Activity, color: 'text-indigo-500'},
+                        {id: 'bulk', label: 'Masse', icon: TrendingUp, color: 'text-rose-500'}
+                    ].map(g => (
+                        <button 
+                            key={g.id}
+                            onClick={() => setUserData({...userData, nutritionGoal: g.id})}
+                            className={`flex-1 py-3 rounded-xl text-xs font-bold flex flex-col items-center gap-2 transition border-2 ${userData.nutritionGoal === g.id ? 'bg-indigo-50 border-indigo-500 text-indigo-700' : 'bg-white border-slate-100 text-slate-400 hover:border-slate-200'}`}
+                        >
+                            <g.icon size={20} className={userData.nutritionGoal === g.id ? g.color : 'text-slate-300'}/>
+                            {g.label}
+                        </button>
+                    ))}
+                </div>
+                <p className="text-xs text-slate-400 mt-3 text-center leading-relaxed">
+                    {userData.nutritionGoal === 'cut' ? "Déficit calorique léger (-400kcal) pour perdre du gras en maintenant le muscle." : 
+                     userData.nutritionGoal === 'bulk' ? "Surplus calorique (+300kcal) pour maximiser la prise de muscle." : 
+                     "Apport équilibré pour la performance et la stabilité du poids."}
+                </p>
+            </div>
         </div>
     );
 };
