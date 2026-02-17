@@ -89,219 +89,31 @@ export const getRecommendedSchedule = (sessions: any[], isHyrox = false) => {
 
         const easyRuns = runs.filter(r => r.id !== longRun?.id && r.id !== qualityRun?.id);
         let runIdx = 0;
-        [3, 5, 0, 2].forEach(dayIdx => { 
-            if (runIdx < easyRuns.length) {
-                if (scheduleData[dayIdx].sessions.length === 0) {
-                    scheduleData[dayIdx].sessions.push(easyRuns[runIdx]);
-                    scheduleData[dayIdx].focus = "Endurance";
-                    runIdx++;
-                } 
-                else if (scheduleData[dayIdx].sessions.length === 1 && scheduleData[dayIdx].sessions[0].category !== 'run') {
-                    const s = scheduleData[dayIdx].sessions[0];
-                    if (!s.type.includes("Jambes")) {
-                        scheduleData[dayIdx].sessions.push(easyRuns[runIdx]);
-                        runIdx++;
-                    }
-                }
+        [3, 5, 0].forEach(dayIdx => {
+            if (scheduleData[dayIdx].sessions.length === 0 && runIdx < easyRuns.length) {
+                scheduleData[dayIdx].sessions.push(easyRuns[runIdx]);
+                scheduleData[dayIdx].focus = "Endurance";
+                runIdx++;
             }
         });
     }
 
-    return scheduleData.map(day => {
-        if (day.sessions.length === 0) return { day: day.dayName, activity: "Repos", focus: "Récupération", sessionIds: [] };
-        const names = day.sessions.map((s: any) => s.type).join(' + ');
-        const ids = day.sessions.map((s: any) => s.id);
-        return { 
-            day: day.dayName, 
-            activity: names, 
-            focus: day.focus || "Entraînement", 
-            sessionIds: ids 
-        };
-    });
+    return scheduleData.map(d => ({
+        day: d.dayName,
+        activity: d.sessions.length > 0 ? d.sessions.map((s: any) => s.type).join(" + ") : "Repos",
+        focus: d.focus || "",
+        sessionIds: d.sessions.map((s: any) => s.id)
+    }));
 };
 
-export const downloadShareImage = (session: any, durationSeconds: number, date: Date) => {
-    const canvas = document.createElement('canvas');
-    canvas.width = 1080;
-    canvas.height = 1080;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+export const downloadTCX = (session: any, durationSeconds: number, date: Date, exercisesLog: any) => {
+    const startTime = new Date(date).toISOString();
+    const sport = session.category === 'run' ? 'Running' : 'Other';
+    const distanceMeters = session.distance ? parseFloat(session.distance.toString().replace(/[^0-9.]/g, '')) * 1000 : 0;
+    const calories = Math.floor(durationSeconds / 60 * 10);
 
-    // Fond
-    ctx.fillStyle = '#0f172a'; // Slate-900
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    // Titre
-    ctx.fillStyle = 'white';
-    ctx.font = 'bold 60px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(session.type.toUpperCase(), canvas.width / 2, 120);
-
-    // Date
-    ctx.fillStyle = '#94a3b8'; // Slate-400
-    ctx.font = '30px sans-serif';
-    ctx.fillText(new Date(date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }), canvas.width / 2, 180);
-
-    // Stats Box
-    ctx.fillStyle = '#1e293b'; // Slate-800
-    // @ts-ignore
-    ctx.roundRect ? ctx.roundRect(140, 240, 800, 180, 40) : ctx.fillRect(140, 240, 800, 180);
-    ctx.fill();
-
-    // Stats Text
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 50px sans-serif';
-    ctx.fillText(formatStopwatch(durationSeconds), 340, 330);
-    ctx.fillText(session.rpe + '/10', 740, 330);
-    
-    ctx.fillStyle = '#64748b'; // Slate-500
-    ctx.font = '24px sans-serif';
-    ctx.fillText("DURÉE", 340, 370);
-    ctx.fillText("INTENSITÉ (RPE)", 740, 370);
-
-    // Graphique Musculaire (Nouvelle version réaliste SVG)
-    const active = getMuscleActivation(session.type);
-    const primary = "#f43f5e"; // Rose
-    const secondary = "#fb923c"; // Orange
-    const inactive = "#334155"; // Slate-700
-    
-    // Construction du SVG en utilisant les chemins BODY_PATHS
-    const svgString = `
-    <svg width="400" height="500" viewBox="0 0 82 160" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="${BODY_PATHS.head}" fill="${inactive}" />
-        <path d="${BODY_PATHS.neck}" fill="${inactive}" />
-        <path d="${BODY_PATHS.traps}" fill="${active.shoulders || active.back ? secondary : inactive}" />
-        <path d="${BODY_PATHS.shoulders}" fill="${active.shoulders ? primary : inactive}" />
-        <path d="${BODY_PATHS.chest}" fill="${active.chest ? primary : inactive}" />
-        <path d="${BODY_PATHS.abs}" fill="${active.abs || active.cardio ? secondary : inactive}" />
-        <path d="${BODY_PATHS.arms}" fill="${active.arms ? primary : inactive}" />
-        <path d="${BODY_PATHS.forearms}" fill="${active.arms ? secondary : inactive}" />
-        <path d="${BODY_PATHS.legs}" fill="${active.legs ? primary : inactive}" />
-        ${active.cardio ? `<circle cx="41" cy="40" r="2" fill="#fbbf24" style="opacity: 0.8"/>` : ''}
-    </svg>`;
-
-    const img = new Image();
-    img.onload = () => {
-        ctx.drawImage(img, 340, 480, 400, 500);
-        
-        // Footer Brand
-        ctx.fillStyle = '#64748b';
-        ctx.font = '24px sans-serif';
-        ctx.fillText("Généré par C-Lab Performance", canvas.width/2, 1040);
-
-        // Trigger Download
-        const link = document.createElement('a');
-        link.download = `clab_visual_${session.type.replace(/\s+/g, '_')}.png`;
-        link.href = canvas.toDataURL('image/png');
-        link.click();
-    };
-    img.src = 'data:image/svg+xml;base64,' + btoa(svgString);
-};
-
-export const downloadTCX = (session: any, durationSeconds: number, date: Date, exercisesLog: any, gpsRoute: any[] = []) => {
-  const startTime = date.toISOString();
-  const endTime = new Date(date.getTime() + durationSeconds * 1000).toISOString();
-  
-  // Estimation calorique : Course ~12kcal/min, Muscu ~8kcal/min
-  const kcalPerMin = session.category === 'run' ? 12 : 8;
-  const calories = Math.floor((durationSeconds / 60) * kcalPerMin); 
-  
-  // Pour la muscu, on met "Other" ce qui est le standard TCX pour tout ce qui n'est pas Run/Bike
-  let sport = 'Other';
-  if (session.category === 'run') sport = 'Running';
-  
-  const distanceMeters = session.distance ? parseFloat(session.distance) * 1000 : 0;
-
-  // --- CONSTRUCTION DU RÉSUMÉ FORMAT "HEVY / STRONG" ---
-  let notesContent = `🚀 C-Lab Performance\n${session.type}\n${session.description}\n\n`;
-  
-  if (session.exercises) {
-      session.exercises.forEach((ex: any, idx: number) => {
-          notesContent += `────────────────────\n`;
-          notesContent += `${idx + 1}. ${ex.name.toUpperCase()}\n`;
-          
-          const uniqueId = `${session.id}-ex-${idx}`;
-          const log = exercisesLog[uniqueId];
-          const targetReps = ex.reps.replace(' reps', '').replace('/', '-'); // Nettoyage simple
-
-          // Récupération du nombre de séries
-          let setsCount = 1;
-          if (typeof ex.sets === 'number') setsCount = ex.sets;
-          else if (typeof ex.sets === 'string') {
-              const match = ex.sets.match(/^(\d+)/);
-              if (match) setsCount = parseInt(match[1]);
-          }
-
-          // Si on a des logs de poids enregistrés par l'utilisateur
-          if (log && log.weights && log.weights.length > 0) {
-            log.weights.forEach((w: string, setIdx: number) => {
-                // Si le poids est entré, on l'affiche, sinon c'est Poids du corps ou juste reps
-                if (w && w !== "") {
-                    notesContent += `Set ${setIdx + 1}: ${w}kg × ${targetReps}\n`;
-                } else {
-                    notesContent += `Set ${setIdx + 1}: ${targetReps}\n`;
-                }
-            });
-            // Si l'utilisateur a fait moins de séries que prévu dans le log (cas rare mais possible)
-            if (log.weights.length < setsCount) {
-                for (let i = log.weights.length; i < setsCount; i++) {
-                        notesContent += `Set ${i + 1}: ${targetReps}\n`;
-                }
-            }
-          } else {
-            // Fallback : Si aucun poids n'est saisi, on affiche le format standard pour chaque série
-            for(let i=0; i<setsCount; i++) {
-                notesContent += `Set ${i + 1}: ${targetReps}\n`;
-            }
-          }
-      });
-  }
-  
-  notesContent += `────────────────────\n`;
-  notesContent += `🔥 RPE: ${session.rpe}/10\n`;
-  notesContent += `⏱️ Temps: ${formatStopwatch(durationSeconds)}`;
-
-  // Échappement des caractères spéciaux XML pour éviter les bugs d'import
-  const safeNotes = notesContent.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-
-  // Construction de la trace GPS (Trackpoints)
-  let trackContent = '';
-  if (gpsRoute && gpsRoute.length > 0) {
-      trackContent = '<Track>\n';
-      gpsRoute.forEach((pt: any) => {
-          trackContent += `
-          <Trackpoint>
-            <Time>${new Date(pt.time).toISOString()}</Time>
-            <Position>
-              <LatitudeDegrees>${pt.lat}</LatitudeDegrees>
-              <LongitudeDegrees>${pt.lon}</LongitudeDegrees>
-            </Position>
-            <DistanceMeters>${pt.dist * 1000}</DistanceMeters>
-          </Trackpoint>`;
-      });
-      trackContent += '\n</Track>';
-  } else {
-      // Fallback si pas de GPS : Points de début et fin fictifs pour valider le fichier
-      // Important pour Strava : ne pas mettre de distanceMeters si c'est de la muscu sans GPS, sinon il croit que c'est une course à pied de 0km
-      const distTag = sport === 'Running' ? `<DistanceMeters>${distanceMeters}</DistanceMeters>` : '';
-      trackContent = `
-        <Track>
-          <Trackpoint>
-            <Time>${startTime}</Time>
-            ${distTag}
-          </Trackpoint>
-          <Trackpoint>
-            <Time>${endTime}</Time>
-            ${distTag}
-          </Trackpoint>
-        </Track>`;
-  }
-
-  const tcxContent = `<?xml version="1.0" encoding="UTF-8"?>
-<TrainingCenterDatabase
-  xsi:schemaLocation="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2 http://www.garmin.com/xmlschemas/TrainingCenterDatabasev2.xsd"
-  xmlns="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2"
-  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    const tcx = `<?xml version="1.0" encoding="UTF-8"?>
+<TrainingCenterDatabase xmlns="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2">
   <Activities>
     <Activity Sport="${sport}">
       <Id>${startTime}</Id>
@@ -311,33 +123,80 @@ export const downloadTCX = (session: any, durationSeconds: number, date: Date, e
         <Calories>${calories}</Calories>
         <Intensity>Active</Intensity>
         <TriggerMethod>Manual</TriggerMethod>
-        ${trackContent}
       </Lap>
-      <Notes>${safeNotes}</Notes>
-      <Creator xsi:type="Device_t">
-        <Name>C-Lab Performance</Name>
-        <UnitId>0</UnitId>
-        <ProductID>1</ProductID>
-        <Version>
-          <VersionMajor>2</VersionMajor>
-          <VersionMinor>0</VersionMinor>
-          <BuildMajor>0</BuildMajor>
-          <BuildMinor>0</BuildMinor>
-        </Version>
-      </Creator>
     </Activity>
   </Activities>
 </TrainingCenterDatabase>`;
+    
+    const blob = new Blob([tcx], { type: 'application/vnd.garmin.tcx+xml' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `clab-session-${session.id}.tcx`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+};
 
-  const blob = new Blob([tcxContent], {type: 'application/vnd.garmin.tcx+xml'});
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  const dateStr = new Date().toISOString().split('T')[0];
-  const safeType = session.type.replace(/\s+/g, '_').toLowerCase();
-  link.download = `clab_${dateStr}_${safeType}.tcx`;
-  
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+export const downloadShareImage = (session: any, durationSeconds: number, date: Date) => {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    canvas.width = 1080;
+    canvas.height = 1080;
+
+    // Background
+    const gradient = ctx.createLinearGradient(0, 0, 1080, 1080);
+    gradient.addColorStop(0, '#1e293b'); // slate-800
+    gradient.addColorStop(1, '#0f172a'); // slate-900
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, 1080, 1080);
+
+    // Title
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 60px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('C-Lab Performance', 540, 100);
+
+    // Session Type
+    ctx.fillStyle = '#818cf8'; // indigo-400
+    ctx.font = 'bold 60px sans-serif';
+    const title = session.type.length > 20 ? session.type.substring(0, 20) + '...' : session.type;
+    ctx.fillText(title, 540, 300);
+
+    // Stats Box
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+    ctx.fillRect(140, 400, 800, 300);
+    
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 40px sans-serif';
+    
+    // Duration
+    const h = Math.floor(durationSeconds / 3600);
+    const m = Math.floor((durationSeconds % 3600) / 60);
+    const s = durationSeconds % 60;
+    const timeStr = `${h > 0 ? h + ':' : ''}${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    
+    ctx.fillText('Durée', 340, 500);
+    ctx.font = 'bold 80px sans-serif';
+    ctx.fillText(timeStr, 340, 600);
+
+    // Calories (Est)
+    ctx.font = 'bold 40px sans-serif';
+    ctx.fillText('Calories', 740, 500);
+    ctx.font = 'bold 80px sans-serif';
+    ctx.fillText(`${Math.floor(durationSeconds / 60 * 10)}`, 740, 600);
+
+    // Date
+    ctx.font = '30px sans-serif';
+    ctx.fillStyle = '#94a3b8'; // slate-400
+    ctx.fillText(new Date(date).toLocaleDateString(), 540, 800);
+
+    // Download
+    const link = document.createElement('a');
+    link.download = `clab-share-${session.id}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
 };

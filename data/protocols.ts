@@ -127,34 +127,34 @@ export const STRENGTH_PROTOCOLS = {
   },
   home_no_equipment: {
     push_home: [
-        { name: "Pompes Classiques", sets: 4, reps: "12-15", rest: "90s", rpe: 8, note: "Pecs / Triceps", imageKeyword: "man doing pushups floor", instructions: "Mains largeur épaules. Corps gainé en planche. Poitrine au sol." },
-        { name: "Dips sur Chaise", sets: 4, reps: "12", rest: "90s", rpe: 8, note: "Triceps", imageKeyword: "triceps dips on chair home", instructions: "Mains sur le bord d'une chaise stable. Descendez les fesses vers le sol. Jambes tendues pour durcir." },
-        { name: "Pompes Pike (Épaules)", sets: 3, reps: "8-10", rest: "90s", rpe: 8, note: "Deltoïdes", imageKeyword: "pike pushup home workout", instructions: "Fesses en l'air, corps en V inversé. Descendez le front vers le sol." },
-        { name: "Pompes Prise Serrée", sets: 3, reps: "10", rest: "60s", rpe: 9, note: "Finition Triceps", imageKeyword: "diamond pushups close grip", instructions: "Mains proches l'une de l'autre. Coudes le long du corps." }
+        { name: "Pompes Élastique", sets: 4, reps: "10-12", rest: "90s", rpe: 8, note: "Pecs/Triceps", imageKeyword: "banded pushups floor", instructions: "Élastique dans le dos, tenu dans chaque main. Résistance max en haut." },
+        { name: "Développé Militaire (Band)", sets: 4, reps: "12", rest: "90s", rpe: 8, note: "Épaules", imageKeyword: "resistance band overhead press", instructions: "Debout, pieds sur l'élastique. Poussez les mains vers le ciel. Gainage fort." },
+        { name: "Élévations Latérales", sets: 3, reps: "15", rest: "60s", rpe: 9, note: "Isolation Delto", imageKeyword: "band lateral raise", instructions: "Pied sur l'élastique. Montez les coudes à hauteur d'épaule." },
+        { name: "Extensions Triceps (Nuque)", sets: 3, reps: "15", rest: "60s", rpe: 9, note: "Triceps", imageKeyword: "band tricep extension", instructions: "Élastique sous le pied, main derrière la nuque. Tendez le bras vers le plafond." }
     ],
     pull_home: [
-        { name: "Tirage Porte/Cadre", sets: 4, reps: "12", rest: "90s", rpe: 8, note: "Dos", imageKeyword: "door frame row home workout", instructions: "Tenez le cadre de porte, pieds proches du cadre. Penchez-vous en arrière et tirez." },
-        { name: "Superman (Extensions)", sets: 4, reps: "15", rest: "60s", rpe: 7, note: "Lombaires", imageKeyword: "superman exercise back extension floor", instructions: "Allongé sur le ventre. Décollez bras et jambes simultanément. Tenez 2 sec." },
-        { name: "Rétraction Scapulaire", sets: 3, reps: "20", rest: "45s", rpe: 6, note: "Posture", imageKeyword: "scapular retraction standing", instructions: "Debout face au mur, mains au mur. Serrez les omoplates sans plier les bras." },
-        { name: "Tirage Serviette Sol", sets: 4, reps: "12", rest: "90s", rpe: 8, note: "Grand Dorsal", imageKeyword: "towel row floor exercise", instructions: "Allongé sur le ventre, serviette en main bras tendus. Tirez la serviette sous le menton en décollant le buste." }
+        { name: "Rowing Debout", sets: 4, reps: "12-15", rest: "90s", rpe: 8, note: "Dos Épaisseur", imageKeyword: "resistance band bent over row", instructions: "Pieds sur l'élastique, buste penché. Tirez les mains vers les hanches." },
+        { name: "Face Pulls", sets: 4, reps: "15-20", rest: "60s", rpe: 7, note: "Posture / Coiffe", imageKeyword: "band face pull home", instructions: "Élastique accroché en hauteur (porte). Tirez vers le front en écartant les mains." },
+        { name: "Band Pull-Aparts", sets: 3, reps: "20", rest: "45s", rpe: 7, note: "Arrière d'épaule", imageKeyword: "band pull aparts", instructions: "Bras tendus devant soi. Écartez les mains pour toucher la poitrine avec l'élastique." },
+        { name: "Biceps Curl", sets: 3, reps: "12-15", rest: "60s", rpe: 9, note: "Biceps", imageKeyword: "resistance band bicep curl", instructions: "Pieds sur l'élastique. Coudes collés au corps." }
     ],
     legs_home: [
-        { name: "Air Squats", sets: 4, reps: "20", rest: "60s", rpe: 7, note: "Volume Jambes", imageKeyword: "bodyweight squat fitness", instructions: "Dos droit, talons au sol. Rythme constant." },
-        { name: "Fentes Arrière", sets: 4, reps: "12/jambe", rest: "90s", rpe: 8, note: "Fessiers", imageKeyword: "reverse lunge bodyweight", instructions: "Alternez gauche/droite. Le genou arrière frôle le sol." },
-        { name: "Glute Bridge (2 jambes)", sets: 4, reps: "20", rest: "45s", rpe: 7, note: "Chaine Post.", imageKeyword: "glute bridge floor exercise", instructions: "Dos au sol, genoux pliés. Levez le bassin en contractant fort les fessiers." },
-        { name: "Mollets sur marche", sets: 4, reps: "20", rest: "45s", rpe: 8, note: "Mollets", imageKeyword: "calf raise on stairs", instructions: "Sur une marche d'escalier ou un livre épais. Tenez-vous au mur." }
+        { name: "Squat avec Élastique", sets: 4, reps: "15", rest: "90s", rpe: 8, note: "Jambes", imageKeyword: "resistance band squat", instructions: "Pieds sur l'élastique, bande passée derrière la nuque ou tenue en 'Front Rack' sur les épaules." },
+        { name: "RDL (Jambes Tendues)", sets: 4, reps: "12", rest: "90s", rpe: 8, note: "Ischios", imageKeyword: "resistance band deadlift", instructions: "Pieds sur l'élastique (raccourci pour tension). Poussez les fesses en arrière, dos plat." },
+        { name: "Marche Latérale (Monstre)", sets: 3, reps: "20 pas", rest: "60s", rpe: 8, note: "Moyen Fessier", imageKeyword: "lateral band walk", instructions: "Élastique autour des chevilles. Genoux fléchis. Pas chassés larges." },
+        { name: "Fentes Unilatérales", sets: 3, reps: "12/jambe", rest: "90s", rpe: 8, note: "Fessiers/Quads", imageKeyword: "split squat resistance band", instructions: "Pied avant sur l'élastique. Tenez les extrémités." }
     ],
     core_home: [
-        { name: "Planche", sets: 3, reps: "45-60s", rest: "60s", rpe: 8, note: "Gainage statique", imageKeyword: "plank exercise floor", instructions: "Corps aligné. Rétroversion du bassin (fesses serrées)." },
-        { name: "Mountain Climbers", sets: 4, reps: "30s", rest: "45s", rpe: 9, note: "Cardio Abdos", imageKeyword: "mountain climbers exercise", instructions: "En position pompe, montez les genoux alternativement vers la poitrine. Rapide." },
-        { name: "Russian Twist", sets: 3, reps: "20", rest: "45s", rpe: 7, note: "Obliques", imageKeyword: "russian twist abs", instructions: "Assis, pieds décollés. Tournez les épaules de gauche à droite." },
-        { name: "Leg Raises", sets: 3, reps: "12-15", rest: "60s", rpe: 8, note: "Bas du ventre", imageKeyword: "leg raises lying floor", instructions: "Allongé dos au sol. Levez les jambes tendues sans décoller les lombaires." }
+        { name: "Pallof Press", sets: 3, reps: "12/côté", rest: "60s", rpe: 8, note: "Anti-Rotation", imageKeyword: "pallof press band", instructions: "Élastique attaché sur le côté. Tendez les bras devant vous sans vous laisser tourner." },
+        { name: "Woodchoppers", sets: 3, reps: "15/côté", rest: "60s", rpe: 7, note: "Obliques", imageKeyword: "band woodchopper", instructions: "Mouvement de bûcheron en diagonale (haut vers bas opposé)." },
+        { name: "Dead Bug (Tension)", sets: 3, reps: "20 alt.", rest: "60s", rpe: 7, note: "Gainage", imageKeyword: "banded dead bug", instructions: "Dos au sol, élastique tiré derrière la tête pour activer le grand dorsal pendant le mouvement de jambes." },
+        { name: "Planche", sets: 3, reps: "Max", rest: "60s", rpe: 9, note: "Statique", imageKeyword: "plank exercise", instructions: "Classique mais efficace." }
     ],
     full_home: [
-        { name: "Burpees", sets: 4, reps: "10-15", rest: "90s", rpe: 9, note: "Conditionning", imageKeyword: "burpees fitness", instructions: "Complet : sol, pompe, saut." },
-        { name: "Jumping Jacks", sets: 4, reps: "45s", rest: "45s", rpe: 7, note: "Cardio", imageKeyword: "jumping jacks exercise", instructions: "Grande amplitude." },
-        { name: "Squat Jumps", sets: 4, reps: "12", rest: "90s", rpe: 9, note: "Explosivité", imageKeyword: "squat jump plyo", instructions: "Descendez en squat, explosez vers le haut. Amortissez la réception." },
-        { name: "Pompes T", sets: 3, reps: "10", rest: "60s", rpe: 8, note: "Gainage dynamique", imageKeyword: "t-pushup exercise", instructions: "Faites une pompe, puis tournez vous sur le côté bras levé. Alternez." }
+        { name: "Thrusters Élastique", sets: 4, reps: "15", rest: "90s", rpe: 9, note: "Cardio/Force", imageKeyword: "band thrusters", instructions: "Squat complet + Développé au dessus de la tête en remontant." },
+        { name: "Good Mornings", sets: 4, reps: "20", rest: "60s", rpe: 7, note: "Chaine Post.", imageKeyword: "band good morning", instructions: "Élastique autour de la nuque, pieds dessus. Penchez le buste en avant, dos plat." },
+        { name: "High Pull + Squat", sets: 3, reps: "15", rest: "90s", rpe: 8, note: "Full Body", imageKeyword: "band high pull", instructions: "Tirage menton suivi d'un squat." },
+        { name: "Burpees", sets: 3, reps: "15", rest: "60s", rpe: 9, note: "Cardio", imageKeyword: "burpees fitness", instructions: "Sans élastique. Juste pour le cardio." }
     ]
   },
   reinforcement: {

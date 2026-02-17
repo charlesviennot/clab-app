@@ -2,8 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   ScanBarcode, X, AlertTriangle, RefreshCw, Search, Zap, Plus, 
   Minus, Scale, TrendingDown, Activity, TrendingUp, Utensils, 
-  Trash2, Wheat, Beef, Droplet, Calculator, ShoppingBag, Edit2
+  Trash2, Wheat, Beef, Droplet, Calculator, ShoppingBag, Edit2, GlassWater, Clock, Globe
 } from 'lucide-react';
+import { calculateDailyCalories, getNutrientTiming } from '../utils/helpers';
+import { FOOD_DATABASE } from '../data/foodDatabase';
 
 const ScannerModal = ({ onClose, onScanSuccess }: {onClose: () => void, onScanSuccess: (data: any) => void}) => {
     const [barcode, setBarcode] = useState('');
@@ -141,45 +143,49 @@ const ScannerModal = ({ onClose, onScanSuccess }: {onClose: () => void, onScanSu
     );
 };
 
+export const NutrientTiming = () => {
+    const timing = getNutrientTiming();
+    return (
+        <div className="bg-slate-900 rounded-2xl p-4 text-white shadow-lg relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-4 opacity-10"><Clock size={48}/></div>
+            <div className="relative z-10 flex items-start gap-4">
+                <div className="text-3xl bg-white/10 p-2 rounded-xl backdrop-blur-md">{timing.icon}</div>
+                <div>
+                    <h4 className="font-bold text-sm text-indigo-300 uppercase tracking-wide mb-1">{timing.label} (Maintenant)</h4>
+                    <p className="text-xs text-slate-300 leading-relaxed">{timing.advice}</p>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 export const NutritionView = ({ userData, setUserData, nutritionLog, setNutritionLog }: any) => {
     const [isAddingMeal, setIsAddingMeal] = useState(false);
     const [isScanning, setIsScanning] = useState(false);
-    // On ajoute 'quantity' et 'per100g' pour gérer le calcul auto
     const [newMeal, setNewMeal] = useState({ name: '', kcal: '', protein: '', carbs: '', fats: '', quantity: '', per100g: null as any });
     const [editingId, setEditingId] = useState<number | null>(null);
     
-    // États pour la recherche API
+    // États pour la recherche
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState<any[]>([]);
+    const [localResults, setLocalResults] = useState<any[]>([]);
     const [isSearching, setIsSearching] = useState(false);
 
-    // Calculs Métaboliques (Mifflin-St Jeor)
-    const calculateTDEE = () => {
-        if (!userData.weight || !userData.height || !userData.age || !userData.gender) return 2000;
-        
-        let bmr = 0;
-        if (userData.gender === 'male') {
-            bmr = 10 * userData.weight + 6.25 * userData.height - 5 * userData.age + 5;
-        } else {
-            bmr = 10 * userData.weight + 6.25 * userData.height - 5 * userData.age - 161;
+    // Calcul des résultats locaux instantanés
+    useEffect(() => {
+        if (searchQuery.length < 2) {
+            setLocalResults([]);
+            return;
         }
-        
-        const totalSessions = (userData.runDaysPerWeek || 0) + (userData.strengthDaysPerWeek || 0) + (userData.hyroxSessionsPerWeek || 0);
-        let activityMultiplier = 1.2;
-        if (totalSessions >= 3) activityMultiplier = 1.375;
-        if (totalSessions >= 5) activityMultiplier = 1.55;
-        if (totalSessions >= 7) activityMultiplier = 1.725;
-        
-        const maintenance = Math.round(bmr * activityMultiplier);
-        
-        switch (userData.nutritionGoal) {
-            case 'cut': return maintenance - 400;
-            case 'bulk': return maintenance + 300;
-            default: return maintenance;
-        }
-    };
+        const filtered = FOOD_DATABASE.filter(item => 
+            item.name.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+        setLocalResults(filtered);
+    }, [searchQuery]);
+
+    // Récupération de l'objectif calorique via le helper partagé
+    const { target: targetCalories } = calculateDailyCalories(userData);
     
-    const targetCalories = calculateTDEE();
     const proteinTarget = Math.round(userData.weight * (userData.strengthDaysPerWeek > 0 ? 2.0 : 1.6)); 
     const fatTarget = Math.round((targetCalories * 0.25) / 9);
     const carbTarget = Math.round((targetCalories - (proteinTarget * 4) - (fatTarget * 9)) / 4); 
@@ -187,7 +193,36 @@ export const NutritionView = ({ userData, setUserData, nutritionLog, setNutritio
     const today = new Date().toISOString().split('T')[0];
     const todayLog = nutritionLog[today] || [];
     
-    const currentTotals = todayLog.reduce((acc: any, meal: any) => ({
+    // WATER TRACKING LOGIC
+    const waterEntry = todayLog.find((m: any) => m.name === 'WATER_TRACKER');
+    const waterIntake = waterEntry ? parseInt(waterEntry.kcal) : 0; 
+
+    const updateWater = (amount: number) => {
+        const updatedLog = { ...nutritionLog };
+        if (!updatedLog[today]) updatedLog[today] = [];
+        
+        const newAmount = Math.max(0, waterIntake + amount);
+        
+        if (waterEntry) {
+            updatedLog[today] = updatedLog[today].map((m: any) => 
+                m.name === 'WATER_TRACKER' ? { ...m, kcal: newAmount.toString() } : m
+            );
+        } else {
+            updatedLog[today].push({ 
+                id: 'water-' + Date.now(), 
+                name: 'WATER_TRACKER', 
+                kcal: newAmount.toString(), 
+                protein: '0', carbs: '0', fats: '0' 
+            });
+        }
+        setNutritionLog(updatedLog);
+    };
+
+    const baseWater = userData.weight * 35; 
+    const activeWater = (userData.dailyActivity === 'active' ? 500 : userData.dailyActivity === 'very_active' ? 1000 : 0);
+    const waterTarget = baseWater + activeWater;
+
+    const currentTotals = todayLog.filter((m:any) => m.name !== 'WATER_TRACKER').reduce((acc: any, meal: any) => ({
         kcal: acc.kcal + (parseInt(meal.kcal) || 0),
         protein: acc.protein + (parseInt(meal.protein) || 0),
         carbs: acc.carbs + (parseInt(meal.carbs) || 0),
@@ -198,6 +233,7 @@ export const NutritionView = ({ userData, setUserData, nutritionLog, setNutritio
         setNewMeal({ name: '', kcal: '', protein: '', carbs: '', fats: '', quantity: '', per100g: null });
         setSearchQuery('');
         setSearchResults([]);
+        setLocalResults([]);
         setEditingId(null);
         setIsAddingMeal(false);
     };
@@ -239,12 +275,11 @@ export const NutritionView = ({ userData, setUserData, nutritionLog, setNutritio
         if (editingId === id) handleCloseModal();
     };
 
-    // Fonction de recherche OpenFoodFacts
-    const searchFood = async () => {
+    const searchFoodAPI = async () => {
         if (!searchQuery || searchQuery.length < 2) return;
         setIsSearching(true);
+        setLocalResults([]); // Clear local to show API results are coming
         try {
-            // Requête vers l'API OpenFoodFacts
             const res = await fetch(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(searchQuery)}&search_simple=1&action=process&json=1&page_size=20&fields=product_name,brands,nutriments,id,_keywords`);
             const data = await res.json();
             if (data.products) {
@@ -257,17 +292,21 @@ export const NutritionView = ({ userData, setUserData, nutritionLog, setNutritio
         }
     };
 
-    const selectSearchedProduct = (product: any) => {
-        const name = `${product.product_name || "Produit Inconnu"} ${product.brands ? `(${product.brands})` : ''}`;
-        const nutriments = product.nutriments || {};
+    const selectProduct = (product: any, isLocal = false) => {
+        let name, per100g;
 
-        // Stockage des valeurs de base pour 100g
-        const per100g = {
-            kcal: nutriments['energy-kcal_100g'] || 0,
-            protein: nutriments.proteins_100g || 0,
-            carbs: nutriments.carbohydrates_100g || 0,
-            fats: nutriments.fat_100g || 0
-        };
+        if (isLocal) {
+            name = `${product.emoji} ${product.name}`;
+            per100g = product.per100g;
+        } else {
+            name = `${product.product_name || "Produit Inconnu"} ${product.brands ? `(${product.brands})` : ''}`;
+            per100g = {
+                kcal: product.nutriments?.['energy-kcal_100g'] || 0,
+                protein: product.nutriments?.proteins_100g || 0,
+                carbs: product.nutriments?.carbohydrates_100g || 0,
+                fats: product.nutriments?.fat_100g || 0
+            };
+        }
 
         setNewMeal({
             name: name,
@@ -275,33 +314,16 @@ export const NutritionView = ({ userData, setUserData, nutritionLog, setNutritio
             protein: Math.round(per100g.protein).toString(),
             carbs: Math.round(per100g.carbs).toString(),
             fats: Math.round(per100g.fats).toString(),
-            quantity: '100', // Par défaut 100g
+            quantity: '100',
             per100g: per100g
         });
-        setSearchResults([]); // Cacher la liste après sélection
+        setSearchResults([]);
+        setLocalResults([]);
+        setSearchQuery('');
     };
 
     const handleScanSuccess = (product: any) => {
-        const name = product.product_name || "Produit scanné";
-        const nutriments = product.nutriments || {};
-        
-        // Stockage des valeurs de base pour 100g
-        const per100g = {
-            kcal: nutriments['energy-kcal_100g'] || 0,
-            protein: nutriments.proteins_100g || 0,
-            carbs: nutriments.carbohydrates_100g || 0,
-            fats: nutriments.fat_100g || 0
-        };
-
-        setNewMeal({
-            name: name,
-            kcal: Math.round(per100g.kcal).toString(),
-            protein: Math.round(per100g.protein).toString(),
-            carbs: Math.round(per100g.carbs).toString(),
-            fats: Math.round(per100g.fats).toString(),
-            quantity: '100', // Par défaut 100g
-            per100g: per100g
-        });
+        selectProduct(product, false);
         setIsAddingMeal(true); 
     };
 
@@ -345,6 +367,42 @@ export const NutritionView = ({ userData, setUserData, nutritionLog, setNutritio
         <div className="space-y-6 animate-in slide-in-from-right-4 pb-20">
             {isScanning && <ScannerModal onClose={() => setIsScanning(false)} onScanSuccess={handleScanSuccess} />}
             
+            {/* NUTRIENT TIMING */}
+            <NutrientTiming />
+
+            {/* HYDRATION TRACKER */}
+            <div className="bg-gradient-to-r from-cyan-500 to-blue-600 rounded-3xl shadow-lg p-6 text-white relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-10 rounded-full -mr-20 -mt-20 blur-2xl pointer-events-none"></div>
+                <div className="relative z-10">
+                    <div className="flex justify-between items-start mb-4">
+                        <div>
+                            <h3 className="text-lg font-black flex items-center gap-2"><GlassWater size={20}/> Hydratation</h3>
+                            <p className="text-xs text-blue-100 opacity-90">Objectif du jour : {waterTarget} ml</p>
+                        </div>
+                        <div className="text-3xl font-black">{waterIntake} <span className="text-sm font-medium opacity-70">ml</span></div>
+                    </div>
+                    
+                    <div className="h-4 w-full bg-black/20 rounded-full overflow-hidden mb-6 backdrop-blur-sm">
+                        <div 
+                            className="h-full bg-white transition-all duration-700 ease-out shadow-[0_0_15px_rgba(255,255,255,0.5)]" 
+                            style={{ width: `${Math.min(100, (waterIntake / waterTarget) * 100)}%` }}
+                        ></div>
+                    </div>
+
+                    <div className="flex gap-3">
+                        <button onClick={() => updateWater(250)} className="flex-1 py-3 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-xl font-bold text-sm transition flex items-center justify-center gap-1 active:scale-95">
+                            <Plus size={14}/> 250ml
+                        </button>
+                        <button onClick={() => updateWater(500)} className="flex-1 py-3 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-xl font-bold text-sm transition flex items-center justify-center gap-1 active:scale-95">
+                            <Plus size={14}/> 500ml
+                        </button>
+                        <button onClick={() => updateWater(-250)} className="w-12 flex items-center justify-center bg-black/20 hover:bg-black/30 rounded-xl transition active:scale-95">
+                            <Minus size={16}/>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             <div className="bg-white rounded-3xl shadow-lg border border-slate-100 p-6 relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50 rounded-full -mr-10 -mt-10 opacity-50 pointer-events-none"></div>
                 <div className="flex justify-between items-start mb-6 relative z-10">
@@ -391,37 +449,7 @@ export const NutritionView = ({ userData, setUserData, nutritionLog, setNutritio
                 </div>
             </div>
 
-            {(!userData.height || !userData.gender || !userData.age) && (
-                <div className="bg-orange-50 border border-orange-200 p-4 rounded-xl animate-in fade-in">
-                    <h4 className="font-bold text-orange-800 text-sm mb-2 flex items-center gap-2"><AlertTriangle size={16}/> Complétez votre profil</h4>
-                    <p className="text-xs text-orange-700 mb-3">Pour un calcul précis, nous avons besoin de vos infos.</p>
-                    <div className="grid grid-cols-2 gap-2">
-                        <input type="number" placeholder="Taille (cm)" className="p-2 rounded-lg text-sm border-orange-200 outline-none" value={userData.height || ''} onChange={(e) => setUserData({...userData, height: parseInt(e.target.value)})} />
-                        <input type="number" placeholder="Âge" className="p-2 rounded-lg text-sm border-orange-200 outline-none" value={userData.age || ''} onChange={(e) => setUserData({...userData, age: parseInt(e.target.value)})} />
-                        <select className="p-2 rounded-lg text-sm border-orange-200 col-span-2 outline-none" value={userData.gender || ''} onChange={(e) => setUserData({...userData, gender: e.target.value})}>
-                            <option value="">Sélectionner le genre</option>
-                            <option value="male">Homme</option>
-                            <option value="female">Femme</option>
-                        </select>
-                    </div>
-                </div>
-            )}
-
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center"><Scale size={20}/></div>
-                    <div>
-                        <div className="text-xs font-bold text-slate-400 uppercase">Poids Actuel</div>
-                        <div className="font-black text-lg text-slate-800 flex items-baseline gap-1">{userData.weight} <span className="text-sm font-medium text-slate-400">kg</span></div>
-                    </div>
-                </div>
-                <div className="flex items-center gap-2">
-                    <button onClick={() => setUserData({...userData, weight: userData.weight - 0.5})} className="p-2 bg-slate-100 rounded-lg hover:bg-slate-200"><Minus size={16}/></button>
-                    <button onClick={() => setUserData({...userData, weight: userData.weight + 0.5})} className="p-2 bg-slate-100 rounded-lg hover:bg-slate-200"><Plus size={16}/></button>
-                </div>
-            </div>
-
-             <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-1 flex">
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-1 flex">
                 {[
                     {id: 'cut', label: 'Perte', icon: TrendingDown},
                     {id: 'maintain', label: 'Maintien', icon: Activity},
@@ -439,9 +467,9 @@ export const NutritionView = ({ userData, setUserData, nutritionLog, setNutritio
 
             <div>
                 <h4 className="font-bold text-slate-800 mb-3 flex items-center gap-2"><Utensils size={18}/> Journal du jour</h4>
-                {todayLog.length > 0 ? (
+                {todayLog.filter((m:any) => m.name !== 'WATER_TRACKER').length > 0 ? (
                     <div className="space-y-2">
-                        {todayLog.map((meal: any) => (
+                        {todayLog.filter((m:any) => m.name !== 'WATER_TRACKER').map((meal: any) => (
                             <div 
                                 key={meal.id} 
                                 onClick={() => startEdit(meal)}
@@ -476,34 +504,64 @@ export const NutritionView = ({ userData, setUserData, nutritionLog, setNutritio
                             <button onClick={handleCloseModal} className="p-2 bg-slate-100 rounded-full"><X size={20}/></button>
                         </div>
 
-                        {/* Barre de recherche API */}
+                        {/* Barre de recherche Hybride */}
                         <div className="mb-6 relative z-50">
                             <div className="relative">
                                 <input 
                                     type="text" 
-                                    placeholder="Rechercher (ex: Fromage blanc, Pâtes...)" 
+                                    placeholder="Chercher (ex: Poulet, Riz, Oeuf...)" 
                                     className="w-full pl-10 pr-12 py-3 bg-slate-50 rounded-xl border border-slate-200 font-bold text-slate-700 focus:ring-2 focus:ring-indigo-500 outline-none transition"
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
-                                    onKeyDown={(e) => e.key === 'Enter' && searchFood()}
+                                    onKeyDown={(e) => e.key === 'Enter' && searchFoodAPI()}
+                                    autoFocus
                                 />
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18}/>
-                                <button 
-                                    onClick={searchFood}
-                                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
-                                    disabled={isSearching}
-                                >
-                                    {isSearching ? <RefreshCw className="animate-spin" size={16}/> : <Search size={16}/>}
-                                </button>
+                                {searchQuery.length > 2 && (
+                                    <button 
+                                        onClick={searchFoodAPI}
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-indigo-100 text-indigo-600 rounded-lg hover:bg-indigo-200 transition"
+                                        title="Chercher sur le web"
+                                    >
+                                        <Globe size={16}/>
+                                    </button>
+                                )}
                             </div>
                             
-                            {/* Résultats de recherche */}
-                            {searchResults.length > 0 && (
+                            {/* Résultats Locaux (Prioritaires) */}
+                            {localResults.length > 0 && (
+                                <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-xl border border-indigo-100 max-h-60 overflow-y-auto z-50 divide-y divide-slate-50 ring-2 ring-indigo-500/10">
+                                    <div className="px-3 py-2 bg-indigo-50 text-[10px] font-bold uppercase text-indigo-500 tracking-wider">Base de données Rapide</div>
+                                    {localResults.map((product, idx) => (
+                                        <button 
+                                            key={idx} 
+                                            onClick={() => selectProduct(product, true)}
+                                            className="w-full text-left p-3 hover:bg-indigo-50 transition flex items-center justify-between group"
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <div className="text-xl">{product.emoji}</div>
+                                                <div>
+                                                    <div className="font-bold text-xs text-slate-800">{product.name}</div>
+                                                    <div className="text-[10px] text-slate-400">{product.per100g.kcal} kcal / 100g</div>
+                                                </div>
+                                            </div>
+                                            <Plus size={14} className="text-indigo-500 opacity-0 group-hover:opacity-100"/>
+                                        </button>
+                                    ))}
+                                    <button onClick={searchFoodAPI} className="w-full text-center py-3 text-xs font-bold text-indigo-600 hover:bg-indigo-50 transition border-t border-indigo-100">
+                                        Pas trouvé ? Chercher "{searchQuery}" sur le web
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* Résultats API (Fallback) */}
+                            {searchResults.length > 0 && localResults.length === 0 && (
                                 <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-xl border border-slate-100 max-h-60 overflow-y-auto z-50 divide-y divide-slate-50">
+                                    <div className="px-3 py-2 bg-slate-50 text-[10px] font-bold uppercase text-slate-400 tracking-wider">Résultats Web</div>
                                     {searchResults.map((product) => (
                                         <button 
                                             key={product.id} 
-                                            onClick={() => selectSearchedProduct(product)}
+                                            onClick={() => selectProduct(product, false)}
                                             className="w-full text-left p-3 hover:bg-indigo-50 transition flex items-center justify-between group"
                                         >
                                             <div className="flex-1 min-w-0">
@@ -518,6 +576,12 @@ export const NutritionView = ({ userData, setUserData, nutritionLog, setNutritio
                                             </div>
                                         </button>
                                     ))}
+                                </div>
+                            )}
+                            
+                            {isSearching && (
+                                <div className="absolute top-full left-0 right-0 mt-2 p-4 bg-white rounded-xl shadow-xl text-center">
+                                    <RefreshCw className="animate-spin mx-auto text-indigo-600" size={24}/>
                                 </div>
                             )}
                         </div>
