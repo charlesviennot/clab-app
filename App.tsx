@@ -86,6 +86,25 @@ export default function App() {
   const [selectedHistorySession, setSelectedHistorySession] = useState<any>(null);
   const currentTimerRef = useRef(0);
 
+  // --- NEW: Event Listener for Daily Briefing Navigation ---
+  useEffect(() => {
+    const handleOpenSession = (e: any) => {
+        const { weekNumber, sessionId } = e.detail;
+        setActiveTab('plan');
+        setStep('result');
+        setExpandedWeek(weekNumber);
+        // Timeout to allow render
+        setTimeout(() => {
+            setExpandedSession(sessionId);
+            const el = document.getElementById(sessionId);
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 100);
+    };
+
+    window.addEventListener('open-session', handleOpenSession);
+    return () => window.removeEventListener('open-session', handleOpenSession);
+  }, []);
+
   const handleDistanceSelect = (dist: string) => { 
       let defaultTime = 50; 
       let defaultDuration = 10; 
@@ -783,7 +802,7 @@ export default function App() {
                             const sessionKey = filteredSessionIds ? `${session.id}-filtered` : session.id;
 
                             return (
-                                <div key={sessionKey} className={`rounded-xl border transition-all duration-500 ease-out ${
+                                <div id={session.id} key={sessionKey} className={`rounded-xl border transition-all duration-500 ease-out ${
                                     filteredSessionIds 
                                         ? 'animate-in slide-in-from-left-4 fade-in zoom-in-95 duration-500' 
                                         : 'animate-in slide-in-from-bottom-2 fade-in duration-300'

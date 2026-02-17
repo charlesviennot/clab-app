@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Zap, Dumbbell, Activity, Flame, Clock, X, Smartphone, Share, Pause, Play, StopCircle, Navigation, MapPin, Ruler, Save, Download, Upload, Copy, Check, Briefcase, Armchair, Hammer, Trash2, FileJson, TrendingDown, TrendingUp, Volume2, VolumeX, Calculator, Disc, Calendar, ArrowRight, Sun, Moon, Coffee, CheckCircle, Trophy, HeartPulse } from 'lucide-react';
+import { Zap, Dumbbell, Activity, Flame, Clock, X, Smartphone, Share, Pause, Play, StopCircle, Navigation, MapPin, Ruler, Save, Download, Upload, Copy, Check, Briefcase, Armchair, Hammer, Trash2, FileJson, TrendingDown, TrendingUp, Volume2, VolumeX, Calculator, Disc, Calendar, ArrowRight, Sun, Moon, Coffee, CheckCircle, Trophy, HeartPulse, Cloud, CloudRain, CloudSnow, CloudLightning, Wind } from 'lucide-react';
 import { formatStopwatch, getMuscleActivation, calculateHaversineDistance, calculateDailyCalories, playBeep, getXpLevel, getRandomMotivation } from '../utils/helpers';
 import { DataManagementModal, OneRMModal, PlateCalculatorModal, HeartRateModal } from './Modals';
 
@@ -13,12 +13,46 @@ export const RpeBadge = ({ level }: { level: number }) => {
 
 export const DailyBriefing = ({ plan, completedSessions }: any) => {
     const [todayDate, setTodayDate] = useState(new Date());
+    const [weather, setWeather] = useState<any>(null);
+    const [loadingWeather, setLoadingWeather] = useState(true);
 
     useEffect(() => {
         // Update date to handle midnight switch if app stays open
         const timer = setInterval(() => setTodayDate(new Date()), 60000);
+        
+        // Weather Fetching
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(async (position) => {
+                try {
+                    const { latitude, longitude } = position.coords;
+                    const response = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true`);
+                    const data = await response.json();
+                    if (data.current_weather) {
+                        setWeather(data.current_weather);
+                    }
+                } catch (e) {
+                    console.error("Weather fetch failed", e);
+                } finally {
+                    setLoadingWeather(false);
+                }
+            }, () => setLoadingWeather(false));
+        } else {
+            setLoadingWeather(false);
+        }
+
         return () => clearInterval(timer);
     }, []);
+
+    const getWeatherIcon = (code: number) => {
+        if (code === 0) return { icon: <Sun size={14} className="text-yellow-400"/>, text: "Ensoleillé" };
+        if (code >= 1 && code <= 3) return { icon: <Cloud size={14} className="text-slate-200"/>, text: "Nuageux" };
+        if (code >= 45 && code <= 48) return { icon: <Wind size={14} className="text-slate-300"/>, text: "Brume" };
+        if (code >= 51 && code <= 67) return { icon: <CloudRain size={14} className="text-blue-300"/>, text: "Pluvieux" };
+        if (code >= 71 && code <= 77) return { icon: <CloudSnow size={14} className="text-white"/>, text: "Neige" };
+        if (code >= 80 && code <= 82) return { icon: <CloudRain size={14} className="text-blue-400"/>, text: "Averses" };
+        if (code >= 95) return { icon: <CloudLightning size={14} className="text-yellow-300"/>, text: "Orage" };
+        return { icon: <Sun size={14} className="text-yellow-400"/>, text: "Beau" };
+    };
 
     // 1. Detect Day
     const jsDay = todayDate.getDay(); // 0=Sun, 1=Mon...
@@ -89,6 +123,8 @@ export const DailyBriefing = ({ plan, completedSessions }: any) => {
             ? <Zap size={24} className="text-yellow-300"/> 
             : <Dumbbell size={24} className="text-white"/>;
 
+    const weatherInfo = weather ? getWeatherIcon(weather.weathercode) : null;
+
     return (
         <div className={`${bgClass} rounded-3xl p-6 text-white mb-6 shadow-xl relative overflow-hidden animate-in slide-in-from-top-4 transition-all duration-500`}>
             {/* Decorations */}
@@ -123,18 +159,22 @@ export const DailyBriefing = ({ plan, completedSessions }: any) => {
 
                 <div className="flex items-center justify-between mt-4">
                     <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-bold uppercase bg-white/20 px-2 py-1 rounded backdrop-blur-sm">Météo</span>
-                        <span className="text-xs font-bold">18°C ☀️</span>
+                        {loadingWeather ? (
+                            <span className="text-[10px] font-bold opacity-70 animate-pulse">Chargement météo...</span>
+                        ) : weather ? (
+                            <div className="flex items-center gap-2 bg-white/20 px-3 py-1.5 rounded-xl backdrop-blur-sm border border-white/10 shadow-sm">
+                                {weatherInfo?.icon}
+                                <span className="text-xs font-bold">{Math.round(weather.temperature)}°C</span>
+                            </div>
+                        ) : (
+                            <span className="text-[10px] font-bold opacity-50">Météo non dispo</span>
+                        )}
                     </div>
                     <button 
                         onClick={() => {
-                            const el = document.getElementById(mainSession.id);
-                            if (el) {
-                                el.scrollIntoView({behavior: 'smooth', block: 'center'});
-                            } else {
-                                const event = new CustomEvent('open-session', { detail: { weekNumber, sessionId: mainSession.id } });
-                                window.dispatchEvent(event);
-                            }
+                            // Envoi d'un événement global pour que App.tsx l'intercepte
+                            const event = new CustomEvent('open-session', { detail: { weekNumber, sessionId: mainSession.id } });
+                            window.dispatchEvent(event);
                         }} 
                         className="bg-white text-indigo-900 px-4 py-2 rounded-lg text-xs font-bold shadow-md hover:bg-indigo-50 transition flex items-center gap-1 group active:scale-95"
                     >
