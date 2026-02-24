@@ -25,15 +25,17 @@ const MacroCard = ({ label, current, target, colorClass, bgClass, icon }: any) =
     );
 };
 
-export const NutritionView = ({ userData, setUserData, nutritionLog, setNutritionLog }: any) => {
+export const NutritionView = ({ userData, setUserData, nutritionLog, setNutritionLog, showFoodSearch, setShowFoodSearch }: any) => {
     const [searchTerm, setSearchTerm] = useState('');
-    const [showFoodSearch, setShowFoodSearch] = useState(false);
     const [waterIntake, setWaterIntake] = useState(0);
     
     // External Search State
     const [externalResults, setExternalResults] = useState<any[]>([]);
     const [isLoadingExternal, setIsLoadingExternal] = useState(false);
     const [searchMode, setSearchMode] = useState<'local' | 'web'>('local');
+
+    const [selectedFood, setSelectedFood] = useState<any>(null);
+    const [quantity, setQuantity] = useState<number>(100);
 
     // Calculate targets
     const metabolism = calculateDailyCalories(userData);
@@ -59,13 +61,13 @@ export const NutritionView = ({ userData, setUserData, nutritionLog, setNutritio
         };
     }, { kcal: 0, protein: 0, carbs: 0, fats: 0 });
 
-    const addFood = (food: any, quantity: number) => {
-        const ratio = quantity / 100;
+    const addFood = (food: any, qty: number) => {
+        const ratio = qty / 100;
         const entry = {
             id: Date.now(),
             name: food.name,
             emoji: food.emoji || '🍽️',
-            quantity: quantity,
+            quantity: qty,
             kcal: (food.per100g.kcal || 0) * ratio,
             protein: (food.per100g.protein || 0) * ratio,
             carbs: (food.per100g.carbs || 0) * ratio,
@@ -77,6 +79,18 @@ export const NutritionView = ({ userData, setUserData, nutritionLog, setNutritio
         setSearchTerm('');
         setExternalResults([]);
         setSearchMode('local');
+        setSelectedFood(null);
+    };
+
+    const handleFoodClick = (food: any) => {
+        setSelectedFood(food);
+        setQuantity(100);
+    };
+
+    const confirmAddFood = () => {
+        if (!selectedFood) return;
+        addFood(selectedFood, quantity);
+        setSelectedFood(null);
     };
 
     const removeFood = (id: number) => {
@@ -277,91 +291,172 @@ export const NutritionView = ({ userData, setUserData, nutritionLog, setNutritio
             {showFoodSearch && (
                 <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/95 backdrop-blur-md animate-in fade-in top-0 left-0 w-full h-full">
                     <div className="bg-white dark:bg-slate-800 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95">
-                        <div className="p-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 flex flex-col gap-3">
-                            <div className="flex justify-between items-center">
-                                <h3 className="font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                                    <Search size={18} className="text-indigo-600"/> Ajouter un aliment
-                                </h3>
-                                <button onClick={() => setShowFoodSearch(false)} className="text-slate-400 hover:text-slate-600 font-bold text-xs bg-slate-200 dark:bg-slate-700 px-3 py-1.5 rounded-lg transition">Fermer</button>
-                            </div>
-                            <div className="flex gap-2">
-                                <input 
-                                    type="text" 
-                                    autoFocus
-                                    placeholder="Pomme, Poulet, Riz..." 
-                                    className="flex-1 bg-white dark:bg-slate-800 px-4 py-3 rounded-xl border-2 border-slate-200 dark:border-slate-700 outline-none font-bold text-slate-700 dark:text-white focus:border-indigo-500 transition shadow-sm"
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                    onKeyDown={(e) => e.key === 'Enter' && searchOpenFoodFacts()}
-                                />
-                                <button 
-                                    onClick={searchOpenFoodFacts}
-                                    className="px-4 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition shadow-lg shadow-indigo-200 dark:shadow-none flex items-center justify-center"
-                                    title="Rechercher sur Internet"
-                                >
-                                    {isLoadingExternal ? <Loader2 size={20} className="animate-spin"/> : <Globe size={20}/>}
-                                </button>
-                            </div>
-                        </div>
                         
-                        <div className="overflow-y-auto p-2">
-                            {/* LOCAL RESULTS */}
-                            {filteredFood.length > 0 && (
-                                <div className="mb-4">
-                                    <div className="px-3 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Base Locale</div>
-                                    {filteredFood.map((food, idx) => (
-                                        <div key={idx} onClick={() => addFood(food, 100)} className="p-3 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-xl cursor-pointer flex items-center justify-between group transition border border-transparent hover:border-slate-200 dark:hover:border-slate-600">
-                                            <div className="flex items-center gap-3">
-                                                <div className="text-2xl">{food.emoji}</div>
-                                                <div>
-                                                    <div className="font-bold text-sm text-slate-700 dark:text-slate-200 group-hover:text-indigo-600 transition">{food.name}</div>
-                                                    <div className="text-[10px] text-slate-400 font-medium">{Math.round(food.per100g.kcal)} kcal / 100g</div>
-                                                </div>
+                        {selectedFood ? (
+                            // QUANTITY SELECTION VIEW
+                            <div className="flex flex-col h-full">
+                                <div className="p-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 flex justify-between items-center">
+                                    <button onClick={() => setSelectedFood(null)} className="text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white font-bold text-xs flex items-center gap-1">
+                                        <ChevronRight size={16} className="rotate-180"/> Retour
+                                    </button>
+                                    <h3 className="font-bold text-slate-800 dark:text-white">Quantité</h3>
+                                    <div className="w-10"></div>
+                                </div>
+                                
+                                <div className="p-6 flex flex-col items-center gap-6 flex-1 overflow-y-auto">
+                                    <div className="text-center">
+                                        <div className="text-6xl mb-2">{selectedFood.emoji}</div>
+                                        <h2 className="text-2xl font-black text-slate-800 dark:text-white">{selectedFood.name}</h2>
+                                        <p className="text-slate-400 text-sm font-medium">{Math.round(selectedFood.per100g.kcal)} kcal / 100g</p>
+                                    </div>
+
+                                    <div className="w-full max-w-xs">
+                                        <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-700 p-2 rounded-2xl border border-slate-200 dark:border-slate-600">
+                                            <input 
+                                                type="number" 
+                                                value={quantity} 
+                                                onChange={(e) => setQuantity(Math.max(0, parseInt(e.target.value) || 0))}
+                                                className="w-full bg-transparent text-center text-3xl font-black text-slate-800 dark:text-white outline-none p-2"
+                                                autoFocus
+                                            />
+                                            <span className="text-slate-400 font-bold pr-4">g</span>
+                                        </div>
+                                        
+                                        <div className="flex justify-center gap-2 mt-3">
+                                            {[50, 100, 150, 200].map(val => (
+                                                <button 
+                                                    key={val} 
+                                                    onClick={() => setQuantity(val)}
+                                                    className={`px-3 py-1 rounded-lg text-xs font-bold transition ${quantity === val ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600'}`}
+                                                >
+                                                    {val}g
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Live Preview */}
+                                    <div className="w-full bg-slate-50 dark:bg-slate-700/50 rounded-2xl p-4 border border-slate-100 dark:border-slate-700">
+                                        <div className="text-center mb-3">
+                                            <span className="text-3xl font-black text-indigo-600">{Math.round((selectedFood.per100g.kcal * quantity) / 100)}</span>
+                                            <span className="text-xs font-bold text-slate-400 uppercase ml-1">kcal</span>
+                                        </div>
+                                        <div className="grid grid-cols-3 gap-2 text-center">
+                                            <div>
+                                                <div className="text-[10px] uppercase font-bold text-slate-400">Glucides</div>
+                                                <div className="font-bold text-slate-700 dark:text-slate-200">{Math.round((selectedFood.per100g.carbs * quantity) / 100)}g</div>
                                             </div>
-                                            <div className="flex items-center gap-2">
-                                                <div className="text-[9px] font-bold text-slate-300 group-hover:text-slate-400 hidden sm:block">
-                                                    P:{food.per100g.protein} G:{food.per100g.carbs} L:{food.per100g.fats}
-                                                </div>
-                                                <ChevronRight size={16} className="text-slate-300 group-hover:text-indigo-400"/>
+                                            <div>
+                                                <div className="text-[10px] uppercase font-bold text-slate-400">Protéines</div>
+                                                <div className="font-bold text-slate-700 dark:text-slate-200">{Math.round((selectedFood.per100g.protein * quantity) / 100)}g</div>
+                                            </div>
+                                            <div>
+                                                <div className="text-[10px] uppercase font-bold text-slate-400">Lipides</div>
+                                                <div className="font-bold text-slate-700 dark:text-slate-200">{Math.round((selectedFood.per100g.fats * quantity) / 100)}g</div>
                                             </div>
                                         </div>
-                                    ))}
+                                    </div>
                                 </div>
-                            )}
 
-                            {/* EXTERNAL RESULTS */}
-                            {externalResults.length > 0 && (
-                                <div className="animate-in fade-in slide-in-from-bottom-2">
-                                    <div className="px-3 py-2 text-[10px] font-bold text-indigo-400 uppercase tracking-wider flex items-center gap-1"><Globe size={10}/> Résultats Web (OpenFoodFacts)</div>
-                                    {externalResults.map((food, idx) => (
-                                        <div key={`ext-${idx}`} onClick={() => addFood(food, 100)} className="p-3 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-xl cursor-pointer flex items-center justify-between group transition border border-transparent hover:border-indigo-100 dark:hover:border-indigo-800">
-                                            <div className="flex items-center gap-3">
-                                                <div className="text-2xl">{food.emoji}</div>
-                                                <div>
-                                                    <div className="font-bold text-sm text-slate-700 dark:text-slate-200 group-hover:text-indigo-600 transition">{food.name}</div>
-                                                    <div className="text-[10px] text-slate-400 font-medium">{Math.round(food.per100g.kcal)} kcal • {food.brand || "Marque inconnue"}</div>
+                                <div className="p-4 border-t border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800">
+                                    <button 
+                                        onClick={confirmAddFood}
+                                        className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-indigo-200 dark:shadow-none transition active:scale-95 flex items-center justify-center gap-2"
+                                    >
+                                        <Plus size={20}/> Ajouter au journal
+                                    </button>
+                                </div>
+                            </div>
+                        ) : (
+                            // SEARCH VIEW
+                            <>
+                                <div className="p-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 flex flex-col gap-3">
+                                    <div className="flex justify-between items-center">
+                                        <h3 className="font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                                            <Search size={18} className="text-indigo-600"/> Ajouter un aliment
+                                        </h3>
+                                        <button onClick={() => setShowFoodSearch(false)} className="text-slate-400 hover:text-slate-600 font-bold text-xs bg-slate-200 dark:bg-slate-700 px-3 py-1.5 rounded-lg transition">Fermer</button>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <input 
+                                            type="text" 
+                                            autoFocus
+                                            placeholder="Pomme, Poulet, Riz..." 
+                                            className="flex-1 bg-white dark:bg-slate-800 px-4 py-3 rounded-xl border-2 border-slate-200 dark:border-slate-700 outline-none font-bold text-slate-700 dark:text-white focus:border-indigo-500 transition shadow-sm"
+                                            value={searchTerm}
+                                            onChange={(e) => setSearchTerm(e.target.value)}
+                                            onKeyDown={(e) => e.key === 'Enter' && searchOpenFoodFacts()}
+                                        />
+                                        <button 
+                                            onClick={searchOpenFoodFacts}
+                                            className="px-4 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition shadow-lg shadow-indigo-200 dark:shadow-none flex items-center justify-center"
+                                            title="Rechercher sur Internet"
+                                        >
+                                            {isLoadingExternal ? <Loader2 size={20} className="animate-spin"/> : <Globe size={20}/>}
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <div className="overflow-y-auto p-2">
+                                    {/* LOCAL RESULTS */}
+                                    {filteredFood.length > 0 && (
+                                        <div className="mb-4">
+                                            <div className="px-3 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Base Locale</div>
+                                            {filteredFood.map((food, idx) => (
+                                                <div key={idx} onClick={() => handleFoodClick(food)} className="p-3 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-xl cursor-pointer flex items-center justify-between group transition border border-transparent hover:border-slate-200 dark:hover:border-slate-600">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="text-2xl">{food.emoji}</div>
+                                                        <div>
+                                                            <div className="font-bold text-sm text-slate-700 dark:text-slate-200 group-hover:text-indigo-600 transition">{food.name}</div>
+                                                            <div className="text-[10px] text-slate-400 font-medium">{Math.round(food.per100g.kcal)} kcal / 100g</div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="text-[9px] font-bold text-slate-300 group-hover:text-slate-400 hidden sm:block">
+                                                            P:{food.per100g.protein} G:{food.per100g.carbs} L:{food.per100g.fats}
+                                                        </div>
+                                                        <ChevronRight size={16} className="text-slate-300 group-hover:text-indigo-400"/>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                            <Download size={16} className="text-slate-300 group-hover:text-indigo-500"/>
+                                            ))}
                                         </div>
-                                    ))}
-                                </div>
-                            )}
+                                    )}
 
-                            {filteredFood.length === 0 && externalResults.length === 0 && !isLoadingExternal && (
-                                <div className="text-center py-12 text-slate-400 text-xs flex flex-col items-center gap-3">
-                                    <Search size={24} className="opacity-50"/>
-                                    <span>Aucun résultat local.</span>
-                                    <button onClick={searchOpenFoodFacts} className="text-indigo-500 font-bold hover:underline">Rechercher "{searchTerm}" sur Internet ?</button>
+                                    {/* EXTERNAL RESULTS */}
+                                    {externalResults.length > 0 && (
+                                        <div className="animate-in fade-in slide-in-from-bottom-2">
+                                            <div className="px-3 py-2 text-[10px] font-bold text-indigo-400 uppercase tracking-wider flex items-center gap-1"><Globe size={10}/> Résultats Web (OpenFoodFacts)</div>
+                                            {externalResults.map((food, idx) => (
+                                                <div key={`ext-${idx}`} onClick={() => handleFoodClick(food)} className="p-3 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-xl cursor-pointer flex items-center justify-between group transition border border-transparent hover:border-indigo-100 dark:hover:border-indigo-800">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="text-2xl">{food.emoji}</div>
+                                                        <div>
+                                                            <div className="font-bold text-sm text-slate-700 dark:text-slate-200 group-hover:text-indigo-600 transition">{food.name}</div>
+                                                            <div className="text-[10px] text-slate-400 font-medium">{Math.round(food.per100g.kcal)} kcal • {food.brand || "Marque inconnue"}</div>
+                                                        </div>
+                                                    </div>
+                                                    <Download size={16} className="text-slate-300 group-hover:text-indigo-500"/>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {filteredFood.length === 0 && externalResults.length === 0 && !isLoadingExternal && (
+                                        <div className="text-center py-12 text-slate-400 text-xs flex flex-col items-center gap-3">
+                                            <Search size={24} className="opacity-50"/>
+                                            <span>Aucun résultat local.</span>
+                                            <button onClick={searchOpenFoodFacts} className="text-indigo-500 font-bold hover:underline">Rechercher "{searchTerm}" sur Internet ?</button>
+                                        </div>
+                                    )}
+                                    
+                                    {isLoadingExternal && (
+                                        <div className="py-8 flex justify-center">
+                                            <Loader2 className="animate-spin text-indigo-500" size={24}/>
+                                        </div>
+                                    )}
                                 </div>
-                            )}
-                            
-                            {isLoadingExternal && (
-                                <div className="py-8 flex justify-center">
-                                    <Loader2 className="animate-spin text-indigo-500" size={24}/>
-                                </div>
-                            )}
-                        </div>
+                            </>
+                        )}
                     </div>
                 </div>
             )}

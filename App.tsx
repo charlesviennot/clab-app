@@ -70,6 +70,7 @@ export default function App() {
   const [nutritionLog, setNutritionLog] = useState<any>(() => loadState('nutritionLog', {})); 
   const [calculationMode, setCalculationMode] = useState('weeks'); 
   const [darkMode, setDarkMode] = useState<boolean>(() => loadState('darkMode', false));
+  const [showFoodSearch, setShowFoodSearch] = useState(false);
 
   useEffect(() => { const dataToSave = { step, activeTab, userData, plan, expandedWeek, completedSessions: Array.from(completedSessions), completedExercises: Array.from(completedExercises), exercisesLog, nutritionLog, darkMode }; localStorage.setItem('clab_storage', JSON.stringify(dataToSave)); }, [step, activeTab, userData, plan, expandedWeek, completedSessions, completedExercises, exercisesLog, nutritionLog, darkMode]);
 
@@ -384,7 +385,7 @@ export default function App() {
         </div>
       )}
 
-      {step === 'result' && (
+      {step === 'result' && !showFoodSearch && (
         <div className="bg-slate-900 text-white p-6 rounded-b-3xl shadow-lg sticky top-0 z-50">
             <div className="max-w-3xl mx-auto flex justify-between items-center flex-wrap gap-4">
             <div className="flex items-center gap-3">
@@ -968,7 +969,7 @@ export default function App() {
             })}
           </div>
         ) : activeTab === 'nutrition' ? (
-             <NutritionView userData={userData} setUserData={setUserData} nutritionLog={nutritionLog} setNutritionLog={setNutritionLog} />
+             <NutritionView userData={userData} setUserData={setUserData} nutritionLog={nutritionLog} setNutritionLog={setNutritionLog} showFoodSearch={showFoodSearch} setShowFoodSearch={setShowFoodSearch} />
         ) : activeTab === 'profile' ? (
              <ProfileView userData={userData} setUserData={setUserData} stats={stats} darkMode={darkMode} setDarkMode={setDarkMode} />
         ) : (
