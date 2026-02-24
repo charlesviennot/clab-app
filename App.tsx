@@ -969,9 +969,9 @@ export default function App() {
             })}
           </div>
         ) : activeTab === 'nutrition' ? (
-             <NutritionView userData={userData} setUserData={setUserData} nutritionLog={nutritionLog} setNutritionLog={setNutritionLog} showFoodSearch={showFoodSearch} setShowFoodSearch={setShowFoodSearch} />
+             <NutritionView userData={userData} setUserData={setUserData} nutritionLog={nutritionLog} setNutritionLog={setNutritionLog} showFoodSearch={showFoodSearch} setShowFoodSearch={setShowFoodSearch} setShowDataModal={setShowDataModal} />
         ) : activeTab === 'profile' ? (
-             <ProfileView userData={userData} setUserData={setUserData} stats={stats} darkMode={darkMode} setDarkMode={setDarkMode} />
+             <ProfileView userData={userData} setUserData={setUserData} stats={stats} darkMode={darkMode} setDarkMode={setDarkMode} setShowInstallGuide={setShowInstallGuide} />
         ) : (
           <div className="space-y-6 animate-in slide-in-from-left-4">
             <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 p-6">

@@ -1,8 +1,9 @@
 
 import React, { useState } from 'react';
-import { Plus, Trash2, Search, Flame, Droplet, ChevronRight, Apple, ScanBarcode, Minus, Utensils, Globe, Loader2, Download } from 'lucide-react';
+import { Plus, Trash2, Search, Flame, Droplet, ChevronRight, Apple, ScanBarcode, Minus, Utensils, Globe, Loader2, Download, X } from 'lucide-react';
 import { calculateDailyCalories, getNutrientTiming } from '../utils/helpers';
 import { FOOD_DATABASE } from '../data/foodDatabase';
+import { Scanner } from '@yudiel/react-qr-scanner';
 
 const MacroCard = ({ label, current, target, colorClass, bgClass, icon }: any) => {
     const percent = Math.min(100, (current / target) * 100);
@@ -36,6 +37,7 @@ export const NutritionView = ({ userData, setUserData, nutritionLog, setNutritio
 
     const [selectedFood, setSelectedFood] = useState<any>(null);
     const [quantity, setQuantity] = useState<number>(100);
+    const [showScanner, setShowScanner] = useState(false);
 
     // Calculate targets
     const metabolism = calculateDailyCalories(userData);
@@ -130,6 +132,41 @@ export const NutritionView = ({ userData, setUserData, nutritionLog, setNutritio
         }
     };
 
+    const handleScan = async (result: any) => {
+        if (result) {
+            const code = result[0].rawValue;
+            setShowScanner(false);
+            setIsLoadingExternal(true);
+            setShowFoodSearch(true);
+            try {
+                const response = await fetch(`https://world.openfoodfacts.org/api/v0/product/${code}.json`);
+                const data = await response.json();
+                if (data.status === 1 && data.product) {
+                    const p = data.product;
+                    const food = {
+                        name: p.product_name_fr || p.product_name,
+                        emoji: '📦',
+                        per100g: {
+                            kcal: p.nutriments['energy-kcal_100g'] || (p.nutriments['energy-kj_100g'] / 4.184) || 0,
+                            protein: p.nutriments['proteins_100g'] || 0,
+                            carbs: p.nutriments['carbohydrates_100g'] || 0,
+                            fats: p.nutriments['fat_100g'] || 0
+                        },
+                        brand: p.brands ? p.brands.split(',')[0] : "Marque inconnue"
+                    };
+                    handleFoodClick(food);
+                } else {
+                    alert("Produit non trouvé !");
+                }
+            } catch (error) {
+                console.error("Erreur scan", error);
+                alert("Erreur lors de la récupération du produit.");
+            } finally {
+                setIsLoadingExternal(false);
+            }
+        }
+    };
+
     const nutrientTiming = getNutrientTiming();
     const filteredFood = FOOD_DATABASE.filter(f => f.name.toLowerCase().includes(searchTerm.toLowerCase()));
     
@@ -170,7 +207,7 @@ export const NutritionView = ({ userData, setUserData, nutritionLog, setNutritio
                             <p className="text-[10px] text-slate-400 font-bold uppercase">Objectif: {userData.nutritionGoal === 'maintain' ? 'Maintien' : userData.nutritionGoal === 'cut' ? 'Perte' : 'Prise de masse'}</p>
                         </div>
                         <div className="flex gap-2">
-                            <button className="p-2 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl hover:bg-slate-200 transition"><ScanBarcode size={20}/></button>
+                            <button onClick={() => setShowScanner(true)} className="p-2 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl hover:bg-slate-200 transition"><ScanBarcode size={20}/></button>
                             <button onClick={() => setShowFoodSearch(true)} className="p-2 bg-indigo-600 text-white rounded-xl shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition active:scale-95"><Plus size={20}/></button>
                         </div>
                     </div>
@@ -286,6 +323,24 @@ export const NutritionView = ({ userData, setUserData, nutritionLog, setNutritio
                     </div>
                 </div>
             </div>
+
+            {/* BARCODE SCANNER MODAL */}
+            {showScanner && (
+                <div className="fixed inset-0 z-[10000] bg-black flex flex-col items-center justify-center">
+                    <div className="w-full max-w-md h-full flex flex-col relative">
+                        <button onClick={() => setShowScanner(false)} className="absolute top-6 right-6 z-50 bg-white/20 p-2 rounded-full text-white backdrop-blur-md">
+                            <X size={24}/>
+                        </button>
+                        <div className="flex-1 flex items-center justify-center bg-black">
+                             <Scanner onScan={handleScan} />
+                        </div>
+                        <div className="p-6 text-center text-white bg-black/80 backdrop-blur-md absolute bottom-0 w-full">
+                            <p className="font-bold">Scannez un code-barres</p>
+                            <p className="text-xs text-white/60 mt-1">Placez le code dans le cadre</p>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* FOOD SEARCH MODAL - OUTSIDE of animated div to prevent stacking context clipping */}
             {showFoodSearch && (
