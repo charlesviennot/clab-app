@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Plus, Trash2, Search, Flame, Droplet, ChevronRight, Apple, ScanBarcode, Minus, Utensils, Globe, Loader2, Download, X } from 'lucide-react';
-import { calculateDailyCalories, getNutrientTiming } from '../utils/helpers';
+import { calculateDailyCalories, getNutrientTiming, vibrate } from '../utils/helpers';
 import { FOOD_DATABASE } from '../data/foodDatabase';
 import { Scanner } from '@yudiel/react-qr-scanner';
 
@@ -82,6 +82,7 @@ export const NutritionView = ({ userData, setUserData, nutritionLog, setNutritio
         setExternalResults([]);
         setSearchMode('local');
         setSelectedFood(null);
+        if(userData.hapticEnabled) vibrate(50);
     };
 
     const handleFoodClick = (food: any) => {
@@ -98,17 +99,32 @@ export const NutritionView = ({ userData, setUserData, nutritionLog, setNutritio
     const removeFood = (id: number) => {
         const newLog = { ...nutritionLog, [today]: todayLog.filter((i: any) => i.id !== id) };
         setNutritionLog(newLog);
+        if(userData.hapticEnabled) vibrate(50);
     };
 
     const searchOpenFoodFacts = async () => {
         if (!searchTerm || searchTerm.length < 2) return;
         setIsLoadingExternal(true);
         setSearchMode('web');
+        
+        const fetchOFF = async (query: string) => {
+             const response = await fetch(`https://fr.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&sort_by=unique_scans_n&json=1&page_size=25`);
+             return await response.json();
+        };
+
         try {
-            // Sort by unique_scans_n to get popular items first (fixes the "Rice" issue)
-            const response = await fetch(`https://fr.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(searchTerm)}&search_simple=1&action=process&sort_by=unique_scans_n&json=1&page_size=25`);
-            const data = await response.json();
+            // 1. First attempt with full query
+            let data = await fetchOFF(searchTerm);
             
+            // 2. Fallback strategy: if 0 results, try removing the last word (often the brand or a specific detail)
+            if ((!data.products || data.products.length === 0) && searchTerm.includes(' ')) {
+                const simplifiedTerm = searchTerm.split(' ').slice(0, -1).join(' ');
+                if (simplifiedTerm.length > 2) {
+                    console.log("Tentative de recherche simplifiée:", simplifiedTerm);
+                    data = await fetchOFF(simplifiedTerm);
+                }
+            }
+
             if (data.products) {
                 const mappedProducts = data.products
                     .filter((p: any) => p.nutriments && (p.product_name || p.product_name_fr)) 
@@ -124,9 +140,12 @@ export const NutritionView = ({ userData, setUserData, nutritionLog, setNutritio
                         brand: p.brands ? p.brands.split(',')[0] : "Marque inconnue"
                     }));
                 setExternalResults(mappedProducts);
+            } else {
+                setExternalResults([]);
             }
         } catch (error) {
             console.error("Erreur recherche OFF", error);
+            setExternalResults([]);
         } finally {
             setIsLoadingExternal(false);
         }
@@ -138,6 +157,7 @@ export const NutritionView = ({ userData, setUserData, nutritionLog, setNutritio
             setShowScanner(false);
             setIsLoadingExternal(true);
             setShowFoodSearch(true);
+            if(userData.hapticEnabled) vibrate(100);
             try {
                 const response = await fetch(`https://world.openfoodfacts.org/api/v0/product/${code}.json`);
                 const data = await response.json();
@@ -157,10 +177,12 @@ export const NutritionView = ({ userData, setUserData, nutritionLog, setNutritio
                     handleFoodClick(food);
                 } else {
                     alert("Produit non trouvé !");
+                    if(userData.hapticEnabled) vibrate([50, 50, 50]);
                 }
             } catch (error) {
                 console.error("Erreur scan", error);
                 alert("Erreur lors de la récupération du produit.");
+                if(userData.hapticEnabled) vibrate([50, 50, 50]);
             } finally {
                 setIsLoadingExternal(false);
             }

@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   X, ListPlus, Search, Dumbbell, Plus, Clock, Footprints, 
   Minus, SkipForward, Check, Square, Activity, Timer, 
-  Brain, Target, CheckCircle, Download, Camera, Save, Upload, Copy, FileJson, Calculator, ChevronRight, Disc, HeartPulse
+  Brain, Target, CheckCircle, Download, Camera, Save, Upload, Copy, FileJson, Calculator, ChevronRight, Disc, HeartPulse, Trash2, AlertTriangle
 } from 'lucide-react';
 import { STRENGTH_PROTOCOLS, RUN_PROTOCOLS } from '../data/protocols';
 import { parseRestTime, getMuscleActivation, formatStopwatch, calculate1RM, calculatePlates, calculateHeartRateZones } from '../utils/helpers';
@@ -211,129 +211,114 @@ export const OneRMModal = ({ onClose }: { onClose: () => void }) => {
 
 // --- EXISTING MODALS ---
 export const DataManagementModal = ({ onClose }: { onClose: () => void }) => {
-    const [importData, setImportData] = useState('');
-    const [copySuccess, setCopySuccess] = useState(false);
-
-    const getFullData = () => {
-        return localStorage.getItem('clab_storage') || '';
-    };
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [importError, setImportError] = useState<string | null>(null);
 
     const handleExport = () => {
-        const data = getFullData();
-        if (data) {
-            navigator.clipboard.writeText(data).then(() => {
-                setCopySuccess(true);
-                setTimeout(() => setCopySuccess(false), 2000);
-            });
-        }
-    };
-
-    const handleDownload = () => {
-        const data = getFullData();
-        if(!data) return;
-        const blob = new Blob([data], { type: "application/json" });
+        const data = localStorage.getItem('clab_storage');
+        if (!data) return;
+        
+        const blob = new Blob([data], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `clab_backup_${new Date().toISOString().split('T')[0]}.json`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `clab-backup-${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
     };
 
-    const handleImport = () => {
-        if (!importData) return;
-        try {
-            JSON.parse(importData); // Validate JSON
-            localStorage.setItem('clab_storage', importData);
-            window.location.reload();
-        } catch (e) {
-            alert("Format de données invalide. Vérifiez votre copie.");
-        }
+    const handleImportClick = () => {
+        fileInputRef.current?.click();
     };
 
-    const handleFileImport = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if(!file) return;
+    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
         const reader = new FileReader();
-        reader.onload = (event) => {
-            const content = event.target?.result as string;
-            if(content) {
-                try {
-                    JSON.parse(content);
-                    localStorage.setItem('clab_storage', content);
-                    window.location.reload();
-                } catch(e) {
-                    alert("Fichier corrompu ou invalide.");
+        reader.onload = (e) => {
+            try {
+                const content = e.target?.result as string;
+                const parsed = JSON.parse(content);
+                
+                // Basic validation
+                if (!parsed.userData || !parsed.plan) {
+                    throw new Error("Format invalide");
                 }
+
+                localStorage.setItem('clab_storage', content);
+                window.location.reload();
+            } catch (err) {
+                setImportError("Fichier invalide ou corrompu.");
             }
         };
         reader.readAsText(file);
     };
 
+    const handleReset = () => {
+        if (confirm("Êtes-vous sûr de vouloir tout effacer ? Cette action est irréversible.")) {
+            localStorage.removeItem('clab_storage');
+            window.location.reload();
+        }
+    };
+
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/90 backdrop-blur-sm animate-in fade-in">
-            <div className="bg-white dark:bg-slate-800 w-full max-w-sm rounded-3xl shadow-2xl p-6 relative animate-in zoom-in-95">
-                <button onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><X size={20}/></button>
-                <h3 className="text-xl font-black text-slate-800 dark:text-white mb-6 flex items-center gap-2"><Save size={20} className="text-indigo-600"/> Sauvegarde & Données</h3>
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in">
+            <div className="bg-white dark:bg-slate-800 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95">
+                <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
+                    <h3 className="font-bold text-lg text-slate-800 dark:text-white flex items-center gap-2">
+                        <Save size={20} className="text-indigo-600"/> Gestion des Données
+                    </h3>
+                    <button onClick={onClose} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition">
+                        <X size={20} className="text-slate-400"/>
+                    </button>
+                </div>
                 
-                <div className="space-y-6">
-                    <div className="bg-indigo-50 dark:bg-indigo-900/30 p-4 rounded-xl border border-indigo-100 dark:border-indigo-800 space-y-3">
-                        <div className="flex items-center justify-between">
-                            <span className="font-bold text-sm text-indigo-900 dark:text-indigo-200">Exporter les données</span>
-                            <Upload size={16} className="text-indigo-500"/>
+                <div className="p-6 space-y-6">
+                    <div className="space-y-4">
+                        <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-2xl border border-indigo-100 dark:border-indigo-800">
+                            <h4 className="font-bold text-indigo-900 dark:text-indigo-300 text-sm mb-2 flex items-center gap-2">
+                                <Download size={16}/> Sauvegarde
+                            </h4>
+                            <p className="text-xs text-indigo-700 dark:text-indigo-400 mb-4">
+                                Téléchargez une copie de vos données (plan, progression, historique) pour les sécuriser ou les transférer sur un autre appareil.
+                            </p>
+                            <button onClick={handleExport} className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition shadow-lg shadow-indigo-200 dark:shadow-none flex items-center justify-center gap-2">
+                                <Download size={18}/> Exporter mes données (.json)
+                            </button>
                         </div>
-                        <p className="text-[10px] text-indigo-700 dark:text-indigo-300">Sauvegardez tout (Progression, Nutrition, Profil) dans un fichier sécurisé.</p>
-                        
-                        <div className="flex gap-2">
-                            <button onClick={handleDownload} className="flex-1 py-3 bg-indigo-600 text-white rounded-lg text-xs font-bold hover:bg-indigo-700 transition flex items-center justify-center gap-2">
-                                <FileJson size={14}/> Télécharger fichier
+
+                        <div className="bg-slate-50 dark:bg-slate-700/30 p-4 rounded-2xl border border-slate-200 dark:border-slate-600">
+                            <h4 className="font-bold text-slate-800 dark:text-slate-200 text-sm mb-2 flex items-center gap-2">
+                                <Upload size={16}/> Restauration
+                            </h4>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
+                                Importez un fichier de sauvegarde (.json) pour récupérer vos données. ⚠️ Cela écrasera les données actuelles.
+                            </p>
+                            <input 
+                                type="file" 
+                                ref={fileInputRef} 
+                                onChange={handleFileChange} 
+                                accept=".json" 
+                                className="hidden"
+                            />
+                            <button onClick={handleImportClick} className="w-full py-3 bg-white dark:bg-slate-700 border-2 border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 font-bold rounded-xl hover:bg-slate-50 dark:hover:bg-slate-600 transition flex items-center justify-center gap-2">
+                                <Upload size={18}/> Importer une sauvegarde
                             </button>
-                            <button onClick={handleExport} className={`flex-1 py-3 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition ${copySuccess ? 'bg-green-500 text-white' : 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-700 hover:bg-indigo-50'}`}>
-                                {copySuccess ? <Check size={14}/> : <Copy size={14}/>} Copier texte
-                            </button>
+                            {importError && (
+                                <p className="text-xs text-rose-500 font-bold mt-2 text-center flex items-center justify-center gap-1">
+                                    <AlertTriangle size={12}/> {importError}
+                                </p>
+                            )}
                         </div>
                     </div>
 
-                    <div className="bg-slate-50 dark:bg-slate-700 p-4 rounded-xl border border-slate-200 dark:border-slate-600 space-y-3">
-                        <div className="flex items-center justify-between">
-                            <span className="font-bold text-sm text-slate-700 dark:text-slate-200">Importer une sauvegarde</span>
-                            <Download size={16} className="text-slate-500"/>
-                        </div>
-                        
-                        <div className="relative">
-                            <input 
-                                type="file" 
-                                accept=".json" 
-                                onChange={handleFileImport}
-                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                            />
-                            <div className="w-full py-3 bg-white dark:bg-slate-800 border border-dashed border-slate-300 dark:border-slate-500 text-slate-500 dark:text-slate-300 rounded-lg text-xs font-bold flex items-center justify-center gap-2 hover:border-indigo-400 hover:text-indigo-500 transition">
-                                <Upload size={14}/> Choisir un fichier .json
-                            </div>
-                        </div>
-
-                        <div className="relative">
-                            <div className="absolute inset-0 flex items-center">
-                                <div className="w-full border-t border-slate-200 dark:border-slate-600"></div>
-                            </div>
-                            <div className="relative flex justify-center text-[10px]">
-                                <span className="px-2 bg-slate-50 dark:bg-slate-700 text-slate-400 uppercase">Ou coller texte</span>
-                            </div>
-                        </div>
-
-                        <div className="flex gap-2">
-                            <input 
-                                type="text" 
-                                className="flex-1 p-2 text-[10px] bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg focus:border-indigo-500 outline-none font-mono text-slate-800 dark:text-white"
-                                placeholder="Collez le code ici..."
-                                value={importData}
-                                onChange={(e) => setImportData(e.target.value)}
-                            />
-                            <button onClick={handleImport} className="px-4 py-2 bg-slate-800 text-white rounded-lg text-xs font-bold hover:bg-slate-900 transition disabled:opacity-50" disabled={!importData}>
-                                OK
-                            </button>
-                        </div>
+                    <div className="pt-4 border-t border-slate-100 dark:border-slate-700">
+                        <button onClick={handleReset} className="w-full py-3 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 font-bold rounded-xl transition flex items-center justify-center gap-2 text-xs">
+                            <Trash2 size={16}/> Réinitialiser l'application (Zéro)
+                        </button>
                     </div>
                 </div>
             </div>

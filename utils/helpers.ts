@@ -208,6 +208,12 @@ export const calculate1RM = (weight: number, reps: number) => {
     return Math.round(weight * (1 + (reps / 30)));
 };
 
+export const vibrate = (pattern: number | number[] = 50) => {
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        navigator.vibrate(pattern);
+    }
+};
+
 export const playBeep = (freq: number = 800, duration: number = 100, type: OscillatorType = 'sine') => {
     const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
     if (!AudioContext) return;

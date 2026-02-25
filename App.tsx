@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { LOGO_URL, DONATION_URL } from './constants';
 import { RUN_PROTOCOLS, STRENGTH_PROTOCOLS } from './data/protocols';
-import { calcDist, formatPace, formatGoalTime, formatStopwatch, getTimeConstraints, getPaceForWeek } from './utils/helpers';
+import { calcDist, formatPace, formatGoalTime, formatStopwatch, getTimeConstraints, getPaceForWeek, vibrate } from './utils/helpers';
 import { getRecommendedSchedule, downloadShareImage, downloadTCX } from './utils/logic';
 import { RpeBadge, WorkoutViz, LiveSessionTimer, InteractiveInterference, PolarizationChart, WeeklyVolumeChart, BanisterChart, TrimpChart, InstallGuide, RunTracker, ProfileView, StatCard, AcwrGauge, DailyBriefing } from './components/Visuals';
 import { ExerciseCatalog, ExerciseModal, SessionHistoryDetail, DataManagementModal } from './components/Modals';
@@ -40,6 +40,7 @@ export default function App() {
       nutritionGoal: 'maintain',
       dailyActivity: 'sedentary', 
       deficitIntensity: 50, // Default 50%
+      hapticEnabled: true, // Haptic Feedback
       heartRate: { max: 180, rest: 60 },
       personalRecords: {
         squat: { val: '', date: '' },
@@ -214,7 +215,14 @@ export default function App() {
       }; 
   }, [plan, completedSessions]);
   
-  const toggleSession = (id: string) => { const newSet = new Set(completedSessions); if (!newSet.has(id)) { newSet.add(id); setCompletedSessions(newSet); } };
+  const toggleSession = (id: string) => { 
+      const newSet = new Set(completedSessions); 
+      if (!newSet.has(id)) { 
+          newSet.add(id); 
+          setCompletedSessions(newSet); 
+          if(userData.hapticEnabled) vibrate(50);
+      } 
+  };
   
   const handleTimerFinish = (sessionId: string, duration: number, dist?: number) => { 
       toggleSession(sessionId); 
@@ -230,6 +238,7 @@ export default function App() {
           const completeData = { session: sessionData, duration: duration, date: new Date() };
           if(dist) (completeData.session as any).distance = (dist / 1000).toFixed(2) + " km";
           setLastCompletedData(completeData); 
+          if(userData.hapticEnabled) vibrate([100, 50, 100]);
       } 
   };
 
@@ -857,11 +866,13 @@ export default function App() {
                                                             <LiveSessionTimer 
                                                                 timerRef={currentTimerRef}
                                                                 onFinish={(duration) => handleTimerFinish(session.id, duration)} 
+                                                                hapticEnabled={userData.hapticEnabled}
                                                             />
                                                         ) : activeGPSId === session.id ? (
                                                             <RunTracker 
                                                                 onFinish={(duration, dist) => handleTimerFinish(session.id, duration, dist)} 
                                                                 targetDistance={session.distance}
+                                                                hapticEnabled={userData.hapticEnabled}
                                                             />
                                                         ) : (
                                                             <div className="flex gap-2">
@@ -882,6 +893,7 @@ export default function App() {
                                                         <LiveSessionTimer 
                                                             timerRef={currentTimerRef}
                                                             onFinish={(duration) => handleTimerFinish(session.id, duration)} 
+                                                            hapticEnabled={userData.hapticEnabled}
                                                         />
                                                     ) : (
                                                         <button onClick={() => setActiveTimerSessionId(session.id)} className="w-full mb-4 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl flex items-center justify-center gap-2 font-bold text-sm shadow-md transition-all">

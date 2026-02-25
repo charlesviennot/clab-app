@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Zap, Dumbbell, Activity, Flame, Clock, X, Smartphone, Share, Pause, Play, StopCircle, Navigation, MapPin, Ruler, Save, Download, Upload, Copy, Check, Briefcase, Armchair, Hammer, Trash2, FileJson, TrendingDown, TrendingUp, Volume2, VolumeX, Calculator, Disc, Calendar, ArrowRight, Sun, Moon, Coffee, CheckCircle, Trophy, HeartPulse, Cloud, CloudRain, CloudSnow, CloudLightning, Wind } from 'lucide-react';
-import { formatStopwatch, getMuscleActivation, calculateHaversineDistance, calculateDailyCalories, playBeep, getXpLevel, getRandomMotivation } from '../utils/helpers';
+import { formatStopwatch, getMuscleActivation, calculateHaversineDistance, calculateDailyCalories, playBeep, getXpLevel, getRandomMotivation, vibrate } from '../utils/helpers';
 import { DataManagementModal, OneRMModal, PlateCalculatorModal, HeartRateModal } from './Modals';
 
 export const RpeBadge = ({ level }: { level: number }) => {
@@ -265,7 +265,7 @@ export const MuscleHeatmap = ({ type, exercises }: { type: string, exercises?: a
     );
 };
 
-export const LiveSessionTimer = ({ onFinish, timerRef }: { onFinish: (s: number) => void, timerRef?: React.MutableRefObject<number> }) => {
+export const LiveSessionTimer = ({ onFinish, timerRef, hapticEnabled }: { onFinish: (s: number) => void, timerRef?: React.MutableRefObject<number>, hapticEnabled?: boolean }) => {
     const [seconds, setSeconds] = useState(0);
     const [isActive, setIsActive] = useState(true);
     const [audioEnabled, setAudioEnabled] = useState(true);
@@ -290,11 +290,13 @@ export const LiveSessionTimer = ({ onFinish, timerRef }: { onFinish: (s: number)
         if (!isActive && audioEnabled) {
             playBeep(800, 100); // Start beep
         }
+        if(hapticEnabled) vibrate(50);
         setIsActive(!isActive);
     };
 
     const handleStop = () => {
         if(audioEnabled) playBeep(600, 300, 'square'); // Stop beep
+        if(hapticEnabled) vibrate(100);
         setIsActive(false);
         onFinish(seconds); 
     };
@@ -323,7 +325,7 @@ export const LiveSessionTimer = ({ onFinish, timerRef }: { onFinish: (s: number)
     );
 };
 
-export const RunTracker = ({ onFinish, targetDistance }: any) => {
+export const RunTracker = ({ onFinish, targetDistance, hapticEnabled }: any) => {
     const [seconds, setSeconds] = useState(0);
     const [isActive, setIsActive] = useState(true);
     const [distance, setDistance] = useState(0);
@@ -378,6 +380,7 @@ export const RunTracker = ({ onFinish, targetDistance }: any) => {
     }, [distance, seconds]);
 
     const handleStop = () => {
+        if(hapticEnabled) vibrate(100);
         setIsActive(false);
         if (watchId.current !== null) navigator.geolocation.clearWatch(watchId.current);
         onFinish(seconds, distance * 1000); 
@@ -417,7 +420,7 @@ export const RunTracker = ({ onFinish, targetDistance }: any) => {
                 </div>
 
                 <div className="flex gap-3">
-                    <button onClick={() => setIsActive(!isActive)} className={`flex-1 py-4 rounded-xl font-bold flex items-center justify-center gap-2 transition active:scale-95 ${isActive ? 'bg-yellow-500 text-yellow-900 shadow-lg shadow-yellow-500/20' : 'bg-green-500 text-white shadow-lg shadow-green-500/20'}`}>
+                    <button onClick={() => { setIsActive(!isActive); if(hapticEnabled) vibrate(50); }} className={`flex-1 py-4 rounded-xl font-bold flex items-center justify-center gap-2 transition active:scale-95 ${isActive ? 'bg-yellow-500 text-yellow-900 shadow-lg shadow-yellow-500/20' : 'bg-green-500 text-white shadow-lg shadow-green-500/20'}`}>
                         {isActive ? <><Pause size={20}/> Pause</> : <><Play size={20}/> Reprendre</>}
                     </button>
                     <button onClick={handleStop} className="px-6 py-4 bg-slate-700 text-white rounded-xl font-bold hover:bg-rose-600 transition hover:shadow-lg hover:shadow-rose-500/20 active:scale-95">
@@ -620,6 +623,32 @@ export const ProfileView = ({ userData, setUserData, stats, darkMode, setDarkMod
                     >
                         <div className="p-2 bg-blue-100 text-blue-600 rounded-lg group-hover:scale-110 transition"><Disc size={20}/></div>
                         <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300 text-center">Disques</span>
+                    </button>
+                </div>
+            </div>
+
+            {/* PREFERENCES */}
+            <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-sm border border-slate-100 dark:border-slate-700">
+                <h4 className="font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2"><Smartphone size={18} className="text-indigo-600"/> Préférences App</h4>
+                <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-700 rounded-xl border border-slate-100 dark:border-slate-600">
+                    <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-lg ${userData.hapticEnabled ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-200 text-slate-400'}`}>
+                            <Volume2 size={20}/>
+                        </div>
+                        <div>
+                            <div className="text-xs font-bold text-slate-700 dark:text-white">Retour Haptique</div>
+                            <div className="text-[10px] text-slate-400">Vibrations lors des actions</div>
+                        </div>
+                    </div>
+                    <button 
+                        onClick={() => {
+                            const newState = !userData.hapticEnabled;
+                            setUserData({...userData, hapticEnabled: newState});
+                            if(newState) vibrate(50);
+                        }}
+                        className={`w-12 h-6 rounded-full transition-colors relative ${userData.hapticEnabled ? 'bg-indigo-600' : 'bg-slate-300'}`}
+                    >
+                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${userData.hapticEnabled ? 'left-7' : 'left-1'}`}></div>
                     </button>
                 </div>
             </div>
