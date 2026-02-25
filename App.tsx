@@ -74,6 +74,67 @@ export default function App() {
   const [darkMode, setDarkMode] = useState<boolean>(() => loadState('darkMode', false));
   const [showFoodSearch, setShowFoodSearch] = useState(false);
 
+  // --- STRAVA CALLBACK HANDLING (SPA MODE) ---
+  useEffect(() => {
+    const handleStravaCallback = async () => {
+      if (window.location.pathname === '/auth/callback') {
+        const params = new URLSearchParams(window.location.search);
+        const code = params.get('code');
+        const error = params.get('error');
+
+        if (error) {
+          alert(`Erreur Strava: ${error}`);
+          window.close();
+          return;
+        }
+
+        if (code) {
+          try {
+            // Call our new API endpoint
+            const response = await fetch('/api/auth/exchange-token', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ code })
+            });
+
+            if (response.ok) {
+              const data = await response.json();
+              // Send message to opener
+              if (window.opener) {
+                window.opener.postMessage({ 
+                  type: 'STRAVA_AUTH_SUCCESS', 
+                  payload: data 
+                }, '*');
+                window.close();
+              } else {
+                // Fallback if not in popup (should not happen with current flow)
+                setStravaData({
+                    accessToken: data.accessToken,
+                    athlete: data.athlete,
+                    expiresAt: data.expiresAt,
+                    lastSync: new Date().toISOString(),
+                    activities: []
+                });
+                window.history.replaceState({}, document.title, "/");
+                alert("Compte Strava connecté !");
+              }
+            } else {
+              const errData = await response.json();
+              alert(`Erreur d'échange de token: ${errData.details || 'Inconnue'}`);
+              window.close();
+            }
+          } catch (e) {
+            console.error(e);
+            alert("Erreur réseau lors de la connexion Strava");
+            window.close();
+          }
+        }
+      }
+    };
+
+    handleStravaCallback();
+  }, []);
+
   useEffect(() => { const dataToSave = { step, activeTab, userData, plan, expandedWeek, completedSessions: Array.from(completedSessions), completedExercises: Array.from(completedExercises), exercisesLog, nutritionLog, stravaData, darkMode }; localStorage.setItem('clab_storage', JSON.stringify(dataToSave)); }, [step, activeTab, userData, plan, expandedWeek, completedSessions, completedExercises, exercisesLog, nutritionLog, stravaData, darkMode]);
 
   const [modalExercise, setModalExercise] = useState<any>(null); 

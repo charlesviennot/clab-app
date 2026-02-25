@@ -43,21 +43,16 @@ async function startServer() {
     res.json({ url: authUrl });
   });
 
-  // 2. Callback Handler
-  app.get('/auth/callback', async (req, res) => {
-    const { code, error } = req.query;
-
-    if (error) {
-      return res.send(`<html><body><h1>Error: ${error}</h1><script>window.close();</script></body></html>`);
-    }
+  // 2. Exchange Token API (POST)
+  app.post('/api/auth/exchange-token', async (req, res) => {
+    const { code } = req.body;
 
     if (!code) {
-      return res.send(`<html><body><h1>Error: No code provided</h1><script>window.close();</script></body></html>`);
+      return res.status(400).json({ error: "No code provided" });
     }
 
     try {
-      console.log("Exchanging code for token...");
-      // Exchange code for token
+      console.log("Exchanging code for token via API...");
       const tokenResponse = await axios.post('https://www.strava.com/oauth/token', {
         client_id: "205697",
         client_secret: "3f263edce5e593f80df1a9ce6e822bb7d847f8a0",
@@ -66,38 +61,22 @@ async function startServer() {
       });
 
       const { access_token, refresh_token, athlete, expires_at } = tokenResponse.data;
-
-      // Send success message to parent window
-      const successHtml = `
-        <html>
-          <body>
-            <script>
-              if (window.opener) {
-                window.opener.postMessage({ 
-                  type: 'STRAVA_AUTH_SUCCESS', 
-                  payload: { 
-                    accessToken: '${access_token}',
-                    refreshToken: '${refresh_token}',
-                    athlete: ${JSON.stringify(athlete)},
-                    expiresAt: ${expires_at}
-                  }
-                }, '*');
-                window.close();
-              } else {
-                window.location.href = '/';
-              }
-            </script>
-            <p>Connexion réussie ! Vous pouvez fermer cette fenêtre.</p>
-          </body>
-        </html>
-      `;
-      res.send(successHtml);
+      
+      res.json({
+        accessToken: access_token,
+        refreshToken: refresh_token,
+        athlete,
+        expiresAt: expires_at
+      });
 
     } catch (err: any) {
-      console.error('Strava Token Error:', err.response?.data || err.message);
-      res.status(500).send(`<html><body><h1>Authentication Failed</h1><p>${err.message}</p></body></html>`);
+      console.error('Strava Token Exchange Error:', err.response?.data || err.message);
+      res.status(500).json({ error: "Authentication Failed", details: err.message });
     }
   });
+
+  // REMOVED: Server-side GET /auth/callback handler to avoid 404s. 
+  // The SPA will handle this route and call the API above.
 
   // 3. Proxy API Request (to avoid CORS issues)
   app.get('/api/strava/activities', async (req, res) => {
