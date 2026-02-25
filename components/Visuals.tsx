@@ -471,15 +471,20 @@ export const ProfileView = ({ userData, setUserData, stats, darkMode, setDarkMod
                     
                     // Fetch activities immediately
                     let activities = [];
+                    let fetchError = null;
+                    
                     try {
                         const response = await fetch('/api/strava/activities', {
                             headers: { 'Authorization': `Bearer ${accessToken}` }
                         });
                         if (response.ok) {
                             activities = await response.json();
+                        } else {
+                            fetchError = `Erreur ${response.status}`;
                         }
-                    } catch (e) {
+                    } catch (e: any) {
                         console.error("Failed to fetch activities automatically", e);
+                        fetchError = e.message;
                     }
 
                     setStravaData({
@@ -490,7 +495,14 @@ export const ProfileView = ({ userData, setUserData, stats, darkMode, setDarkMod
                         activities: activities
                     });
                     
-                    alert(`Compte connecté ! ${activities.length} activités récupérées.`);
+                    if (fetchError) {
+                        alert(`Compte connecté, mais impossible de récupérer les activités (${fetchError}).\n\nEssayez le bouton "Synchroniser maintenant".`);
+                    } else if (activities.length === 0) {
+                        alert(`Compte connecté, mais 0 activité trouvée.\n\nAttention : Avez-vous bien coché TOUTES les cases sur Strava (y compris "Voir les données de vos activités privées") ?\n\nSi non, déconnectez-vous et recommencez en cochant tout.`);
+                    } else {
+                        alert(`Succès ! ${activities.length} activités récupérées.`);
+                    }
+                    
                     window.removeEventListener('message', handleMessage);
                 }
             };
