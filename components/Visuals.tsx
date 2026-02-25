@@ -448,8 +448,11 @@ export const ProfileView = ({ userData, setUserData, stats, darkMode, setDarkMod
 
     const handleConnectStrava = async () => {
         try {
-            const response = await fetch('/api/auth/strava/url');
-            const { url } = await response.json();
+            // Generate URL Client-Side to avoid server issues
+            const clientId = "205697";
+            const redirectUri = `${window.location.origin}/auth/callback`;
+            const scope = "activity:read_all,profile:read_all";
+            const authUrl = `https://www.strava.com/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${scope}&approval_prompt=auto`;
             
             const width = 600;
             const height = 700;
@@ -457,7 +460,7 @@ export const ProfileView = ({ userData, setUserData, stats, darkMode, setDarkMod
             const top = window.screen.height / 2 - height / 2;
 
             const authWindow = window.open(
-                url,
+                authUrl,
                 'Strava Auth',
                 `width=${width},height=${height},top=${top},left=${left}`
             );
