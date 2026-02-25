@@ -479,7 +479,7 @@ export const ProfileView = ({ userData, setUserData, stats, darkMode, setDarkMod
             window.addEventListener('message', handleMessage);
         } catch (error: any) {
             console.error("Erreur connexion Strava", error);
-            alert(`Erreur lors de la connexion à Strava: ${error.message || error}`);
+            alert(`Oups ! La connexion a échoué.\n\nMessage technique : ${error.message || error}\n\nVérifiez que vous avez bien autorisé l'application sur Strava.`);
         }
     };
 
