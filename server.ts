@@ -172,6 +172,33 @@ async function startServer() {
     }
   });
 
+  // 4. Upload Activity API (POST)
+  app.post('/api/strava/upload', async (req, res) => {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: "No token provided" });
+
+    const { name, type, start_date_local, elapsed_time, description } = req.body;
+
+    try {
+      const response = await axios.post('https://www.strava.com/api/v3/activities', {
+        name,
+        type,
+        start_date_local,
+        elapsed_time,
+        description
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      res.status(201).json(response.data);
+    } catch (err: any) {
+      console.error('Strava Upload Error:', err.response?.data || err.message);
+      res.status(500).json({ 
+        error: "Failed to upload activity", 
+        details: err.response?.data || err.message 
+      });
+    }
+  });
+
   // --- VITE MIDDLEWARE ---
 
   if (process.env.NODE_ENV !== "production") {

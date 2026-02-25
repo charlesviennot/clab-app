@@ -794,6 +794,51 @@ export const ProfileView = ({ userData, setUserData, stats, darkMode, setDarkMod
                             <Activity size={16}/> Synchroniser maintenant
                         </button>
 
+                        <button 
+                            onClick={async () => {
+                                // Find the last completed session
+                                const lastSession = stats?.lastSession; 
+                                if (!lastSession) {
+                                    alert("Aucune séance terminée trouvée à exporter.");
+                                    return;
+                                }
+
+                                const confirmExport = confirm(`Voulez-vous exporter la séance "${lastSession.name || 'Musculation'}" vers Strava ?`);
+                                if (!confirmExport) return;
+
+                                try {
+                                    const response = await fetch('/api/strava/upload', {
+                                        method: 'POST',
+                                        headers: {
+                                            'Content-Type': 'application/json',
+                                            'Authorization': `Bearer ${stravaData.accessToken}`
+                                        },
+                                        body: JSON.stringify({
+                                            name: lastSession.name || "Séance C-Lab Performance",
+                                            type: "WeightTraining",
+                                            start_date_local: new Date().toISOString(),
+                                            elapsed_time: lastSession.duration ? parseInt(lastSession.duration) * 60 : 3600, // Default 1h if unknown
+                                            description: `Séance de musculation réalisée avec C-Lab Performance.\n\n${lastSession.exercises?.map((e:any) => `- ${e.name}: ${e.sets}x${e.reps} @ ${e.weight}kg`).join('\n') || ''}`
+                                        })
+                                    });
+
+                                    if (response.ok) {
+                                        alert("Séance exportée avec succès sur Strava !");
+                                        handleSyncStrava(); // Refresh list
+                                    } else {
+                                        const err = await response.json();
+                                        alert(`Erreur d'export : ${err.details || err.error}`);
+                                    }
+                                } catch (e: any) {
+                                    console.error(e);
+                                    alert("Erreur réseau lors de l'export.");
+                                }
+                            }}
+                            className="w-full py-3 bg-orange-500 text-white font-bold rounded-xl hover:bg-orange-600 transition shadow-lg shadow-orange-200 flex items-center justify-center gap-2"
+                        >
+                            <Upload size={16}/> Exporter la dernière séance
+                        </button>
+
                         {stravaData.activities && stravaData.activities.length > 0 && (
                             <div className="space-y-2 mt-4">
                                 <h5 className="text-xs font-bold text-slate-400 uppercase">Dernières Activités</h5>

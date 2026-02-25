@@ -549,8 +549,46 @@ export default function App() {
                         )}
                     </div>
                     <div className="space-y-3">
-                        <button onClick={() => downloadTCX(lastCompletedData.session, lastCompletedData.duration, lastCompletedData.date, exercisesLog)} className="w-full py-4 bg-orange-500 text-white font-bold rounded-xl hover:bg-orange-600 transition shadow-lg shadow-orange-200 flex items-center justify-center gap-2"><Download size={20}/> Exporter pour Strava (.tcx)</button>
-                        <button onClick={() => downloadShareImage(lastCompletedData.session, lastCompletedData.duration, lastCompletedData.date)} className="w-full py-4 bg-slate-800 text-white font-bold rounded-xl hover:bg-slate-700 transition shadow-lg flex items-center justify-center gap-2"><Camera size={20}/> Télécharger le Visuel (Image)</button>
+                        {stravaData?.accessToken ? (
+                            <button 
+                                onClick={async () => {
+                                    try {
+                                        const response = await fetch('/api/strava/upload', {
+                                            method: 'POST',
+                                            headers: {
+                                                'Content-Type': 'application/json',
+                                                'Authorization': `Bearer ${stravaData.accessToken}`
+                                            },
+                                            body: JSON.stringify({
+                                                name: lastCompletedData.session.name || lastCompletedData.session.type || "Séance C-Lab",
+                                                type: "WeightTraining",
+                                                start_date_local: new Date().toISOString(),
+                                                elapsed_time: lastCompletedData.duration,
+                                                description: `Séance réalisée avec C-Lab Performance.\n\n${lastCompletedData.session.exercises?.map((e:any) => `- ${e.name}`).join('\n') || ''}`
+                                            })
+                                        });
+
+                                        if (response.ok) {
+                                            alert("Séance envoyée sur Strava avec succès ! 🚀");
+                                        } else {
+                                            const err = await response.json();
+                                            alert(`Erreur Strava : ${err.details || err.error}`);
+                                        }
+                                    } catch (e) {
+                                        alert("Erreur réseau lors de l'envoi.");
+                                    }
+                                }}
+                                className="w-full py-4 bg-[#FC4C02] text-white font-bold rounded-xl hover:bg-[#E34402] transition shadow-lg shadow-orange-200 flex items-center justify-center gap-2"
+                            >
+                                <Upload size={20}/> Envoyer sur Strava
+                            </button>
+                        ) : (
+                            <button onClick={() => downloadTCX(lastCompletedData.session, lastCompletedData.duration, lastCompletedData.date, exercisesLog)} className="w-full py-4 bg-slate-800 text-white font-bold rounded-xl hover:bg-slate-700 transition shadow-lg flex items-center justify-center gap-2">
+                                <Download size={20}/> Télécharger fichier Strava (.tcx)
+                            </button>
+                        )}
+                        
+                        <button onClick={() => downloadShareImage(lastCompletedData.session, lastCompletedData.duration, lastCompletedData.date)} className="w-full py-4 bg-white border-2 border-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition shadow-sm flex items-center justify-center gap-2"><Camera size={20}/> Partager en Image</button>
                         <button onClick={() => setLastCompletedData(null)} className="w-full py-3 text-slate-400 font-bold hover:text-slate-600 transition">Fermer</button>
                     </div>
                 </div>
