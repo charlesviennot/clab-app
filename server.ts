@@ -75,8 +75,82 @@ async function startServer() {
     }
   });
 
-  // REMOVED: Server-side GET /auth/callback handler to avoid 404s. 
-  // The SPA will handle this route and call the API above.
+  // 3. Callback Handler (Lightweight HTML)
+  // Serves a simple page to handle the callback without loading the full React app
+  app.get('/auth/callback', (req, res) => {
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Connexion Strava...</title>
+        <style>
+          body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: #f8fafc; color: #334155; }
+          .loader { border: 4px solid #f3f3f3; border-top: 4px solid #fc4c02; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 20px; }
+          @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+          .error { color: #ef4444; background: #fee2e2; padding: 1rem; border-radius: 0.5rem; max-width: 80%; text-align: center; }
+        </style>
+      </head>
+      <body>
+        <div id="loading">
+          <div class="loader"></div>
+          <p>Connexion à Strava en cours...</p>
+        </div>
+        <div id="error" class="error" style="display: none;"></div>
+
+        <script>
+          async function handleCallback() {
+            const params = new URLSearchParams(window.location.search);
+            const code = params.get('code');
+            const error = params.get('error');
+
+            if (error) {
+              showError('Erreur Strava: ' + error);
+              return;
+            }
+
+            if (!code) {
+              showError('Code d\\'autorisation manquant.');
+              return;
+            }
+
+            try {
+              const response = await fetch('/api/auth/exchange-token', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ code })
+              });
+
+              if (response.ok) {
+                const data = await response.json();
+                if (window.opener) {
+                  window.opener.postMessage({ type: 'STRAVA_AUTH_SUCCESS', payload: data }, '*');
+                  window.close();
+                } else {
+                  showError('Fenêtre parente introuvable. Vous pouvez fermer cet onglet.');
+                }
+              } else {
+                const errData = await response.json();
+                showError('Échec de la connexion: ' + (errData.details || 'Erreur inconnue'));
+              }
+            } catch (err) {
+              showError('Erreur réseau: ' + err.message);
+            }
+          }
+
+          function showError(msg) {
+            document.getElementById('loading').style.display = 'none';
+            const errEl = document.getElementById('error');
+            errEl.textContent = msg;
+            errEl.style.display = 'block';
+          }
+
+          handleCallback();
+        </script>
+      </body>
+      </html>
+    `;
+    res.send(html);
+  });
 
   // 3. Proxy API Request (to avoid CORS issues)
   app.get('/api/strava/activities', async (req, res) => {
