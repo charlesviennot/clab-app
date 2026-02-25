@@ -23,7 +23,10 @@ async function startServer() {
   // 1. Get Auth URL
   app.get('/api/auth/strava/url', (req, res) => {
     const clientId = process.env.STRAVA_CLIENT_ID;
-    const redirectUri = `${req.protocol}://${req.get('host')}/auth/callback`;
+    
+    // Force HTTPS if not localhost
+    const protocol = req.get('host')?.includes('localhost') ? 'http' : 'https';
+    const redirectUri = `${protocol}://${req.get('host')}/auth/callback`;
     
     if (!clientId) {
       return res.status(500).json({ error: "STRAVA_CLIENT_ID not configured" });
