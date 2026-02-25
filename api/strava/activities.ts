@@ -13,6 +13,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(200).json(response.data);
   } catch (error: any) {
     console.error('Strava API Error:', error.response?.data || error.message);
-    res.status(500).json({ error: "Failed to fetch activities" });
+    // Return the actual error details to the client for debugging
+    res.status(500).json({ 
+      error: "Failed to fetch activities", 
+      details: error.response?.data || error.message 
+    });
   }
 }

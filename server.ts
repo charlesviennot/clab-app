@@ -165,7 +165,10 @@ async function startServer() {
       res.json(response.data);
     } catch (err: any) {
       console.error('Strava API Error:', err.response?.data || err.message);
-      res.status(500).json({ error: "Failed to fetch activities" });
+      res.status(500).json({ 
+        error: "Failed to fetch activities", 
+        details: err.response?.data || err.message 
+      });
     }
   });
 

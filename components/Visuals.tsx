@@ -480,7 +480,8 @@ export const ProfileView = ({ userData, setUserData, stats, darkMode, setDarkMod
                         if (response.ok) {
                             activities = await response.json();
                         } else {
-                            fetchError = `Erreur ${response.status}`;
+                            const errData = await response.json().catch(() => ({}));
+                            fetchError = `Erreur ${response.status}: ${JSON.stringify(errData.details || errData)}`;
                         }
                     } catch (e: any) {
                         console.error("Failed to fetch activities automatically", e);
