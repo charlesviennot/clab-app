@@ -20,7 +20,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       grant_type: 'authorization_code'
     });
 
-    res.status(200).json(tokenResponse.data);
+    const { access_token, refresh_token, athlete, expires_at } = tokenResponse.data;
+
+    res.status(200).json({
+      accessToken: access_token,
+      refreshToken: refresh_token,
+      athlete,
+      expiresAt: expires_at
+    });
   } catch (error: any) {
     console.error('Strava Token Exchange Error:', error.response?.data || error.message);
     res.status(500).json({ error: 'Authentication Failed', details: error.message });
