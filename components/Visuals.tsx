@@ -727,6 +727,15 @@ export const ProfileView = ({ userData, setUserData, stats, darkMode, setDarkMod
                 {!stravaData?.accessToken ? (
                     <div className="text-center">
                         <p className="text-xs text-slate-500 mb-4">Connectez votre compte Strava pour importer automatiquement vos activités et suivre votre progression.</p>
+                        
+                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 text-left">
+                            <p className="text-[10px] font-bold text-amber-800 uppercase mb-1">⚠️ Configuration Requise</p>
+                            <p className="text-[10px] text-amber-700 mb-2">Assurez-vous que ce domaine est bien ajouté dans vos paramètres Strava (Authorization Callback Domain) :</p>
+                            <code className="block bg-white px-2 py-1 rounded border border-amber-100 text-[10px] font-mono text-slate-600 break-all select-all">
+                                {window.location.hostname}
+                            </code>
+                        </div>
+
                         <button 
                             onClick={handleConnectStrava}
                             className="w-full py-3 bg-[#FC4C02] text-white font-bold rounded-xl hover:bg-[#E34402] transition shadow-lg shadow-orange-200 flex items-center justify-center gap-2"
