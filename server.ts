@@ -22,15 +22,14 @@ async function startServer() {
 
   // 1. Get Auth URL
   app.get('/api/auth/strava/url', (req, res) => {
-    const clientId = process.env.STRAVA_CLIENT_ID;
+    // Hardcoded for simplicity/debugging as requested
+    const clientId = "205697";
     
     // Force HTTPS if not localhost
     const protocol = req.get('host')?.includes('localhost') ? 'http' : 'https';
     const redirectUri = `${protocol}://${req.get('host')}/auth/callback`;
     
-    if (!clientId) {
-      return res.status(500).json({ error: "STRAVA_CLIENT_ID not configured" });
-    }
+    console.log("Generating Auth URL with:", { clientId, redirectUri });
 
     const params = new URLSearchParams({
       client_id: clientId,
@@ -57,10 +56,11 @@ async function startServer() {
     }
 
     try {
+      console.log("Exchanging code for token...");
       // Exchange code for token
       const tokenResponse = await axios.post('https://www.strava.com/oauth/token', {
-        client_id: process.env.STRAVA_CLIENT_ID,
-        client_secret: process.env.STRAVA_CLIENT_SECRET,
+        client_id: "205697",
+        client_secret: "3f263edce5e593f80df1a9ce6e822bb7d847f8a0",
         code: code,
         grant_type: 'authorization_code'
       });
