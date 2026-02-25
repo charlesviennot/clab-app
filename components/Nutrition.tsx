@@ -39,6 +39,8 @@ export const NutritionView = ({ userData, setUserData, nutritionLog, setNutritio
     const [quantity, setQuantity] = useState<number>(100);
     const [showScanner, setShowScanner] = useState(false);
 
+    const [editingId, setEditingId] = useState<number | null>(null);
+
     // Calculate targets
     const metabolism = calculateDailyCalories(userData);
     const targetKcal = metabolism.target;
@@ -66,28 +68,59 @@ export const NutritionView = ({ userData, setUserData, nutritionLog, setNutritio
     const addFood = (food: any, qty: number) => {
         const ratio = qty / 100;
         const entry = {
-            id: Date.now(),
+            id: editingId || Date.now(),
             name: food.name,
             emoji: food.emoji || '🍽️',
             quantity: qty,
             kcal: (food.per100g.kcal || 0) * ratio,
             protein: (food.per100g.protein || 0) * ratio,
             carbs: (food.per100g.carbs || 0) * ratio,
-            fats: (food.per100g.fats || 0) * ratio
+            fats: (food.per100g.fats || 0) * ratio,
+            per100g: food.per100g // Keep per100g for future edits
         };
-        const newLog = { ...nutritionLog, [today]: [...todayLog, entry] };
+
+        let newLogData;
+        if (editingId) {
+            // Update existing entry
+            newLogData = todayLog.map((item: any) => item.id === editingId ? entry : item);
+        } else {
+            // Add new entry
+            newLogData = [...todayLog, entry];
+        }
+
+        const newLog = { ...nutritionLog, [today]: newLogData };
         setNutritionLog(newLog);
         setShowFoodSearch(false);
         setSearchTerm('');
         setExternalResults([]);
         setSearchMode('local');
         setSelectedFood(null);
+        setEditingId(null);
         if(userData.hapticEnabled) vibrate(50);
     };
 
     const handleFoodClick = (food: any) => {
         setSelectedFood(food);
         setQuantity(100);
+        setEditingId(null);
+    };
+
+    const handleEditFood = (item: any) => {
+        // Reconstruct food object from log item
+        const food = {
+            name: item.name,
+            emoji: item.emoji,
+            per100g: item.per100g || {
+                kcal: (item.kcal / item.quantity) * 100,
+                protein: (item.protein / item.quantity) * 100,
+                carbs: (item.carbs / item.quantity) * 100,
+                fats: (item.fats / item.quantity) * 100
+            }
+        };
+        setSelectedFood(food);
+        setQuantity(item.quantity);
+        setEditingId(item.id);
+        setShowFoodSearch(true);
     };
 
     const confirmAddFood = () => {
@@ -306,7 +339,7 @@ export const NutritionView = ({ userData, setUserData, nutritionLog, setNutritio
                     {todayLog.length > 0 ? (
                         <div className="space-y-3">
                             {todayLog.map((item: any) => (
-                                <div key={item.id} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-700/50 rounded-xl border border-slate-100 dark:border-slate-700 hover:border-indigo-200 transition group">
+                                <div key={item.id} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-700/50 rounded-xl border border-slate-100 dark:border-slate-700 hover:border-indigo-200 transition group cursor-pointer" onClick={() => handleEditFood(item)}>
                                     <div className="flex items-center gap-3 overflow-hidden">
                                         <div className="text-2xl shrink-0">{item.emoji}</div>
                                         <div className="min-w-0">
@@ -318,7 +351,7 @@ export const NutritionView = ({ userData, setUserData, nutritionLog, setNutritio
                                         <div className="text-right text-[9px] font-bold text-slate-400 hidden sm:block bg-white dark:bg-slate-800 px-2 py-1 rounded border border-slate-100 dark:border-slate-600">
                                             <span className="text-amber-500">G: {Math.round(item.carbs)}</span> • <span className="text-indigo-500">P: {Math.round(item.protein)}</span> • <span className="text-rose-500">L: {Math.round(item.fats)}</span>
                                         </div>
-                                        <button onClick={() => removeFood(item.id)} className="text-slate-300 hover:text-rose-500 transition p-2 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-full">
+                                        <button onClick={(e) => { e.stopPropagation(); removeFood(item.id); }} className="text-slate-300 hover:text-rose-500 transition p-2 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-full">
                                             <Trash2 size={16}/>
                                         </button>
                                     </div>
