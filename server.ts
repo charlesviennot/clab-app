@@ -77,7 +77,7 @@ async function startServer() {
 
   // 3. Callback Handler (Lightweight HTML)
   // Serves a simple page to handle the callback without loading the full React app
-  app.get('/auth/callback', (req, res) => {
+  app.get(['/auth/callback', '/auth/callback/'], (req, res) => {
     const html = `
       <!DOCTYPE html>
       <html>
