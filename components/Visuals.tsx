@@ -440,11 +440,75 @@ export const BanisterChart = ({ duration }: {duration: number}) => { if (!durati
 export const TrimpChart = ({ plannedData, realizedData }: {plannedData: number[], realizedData: number[]}) => { const [selectedPoint, setSelectedPoint] = useState<number | null>(null); if (!plannedData || plannedData.length === 0) return <div className="text-xs text-slate-400 italic text-center p-4">En attente de données...</div>; const trimpData = plannedData.map((val, i) => { const intensityFactor = (i % 4 === 0) ? 0.7 : (i % 4 === 1) ? 0.9 : 0.8; return Math.round(val * intensityFactor); }); const realizedTrimpData = realizedData.map((val, i) => { const intensityFactor = (i % 4 === 0) ? 0.7 : (i % 4 === 1) ? 0.9 : 0.8; return Math.round(val * intensityFactor); }); const maxTrimp = Math.max(...trimpData, 1); return ( <div className="space-y-4"> <div className="flex justify-end gap-3 text-[10px] font-bold uppercase text-slate-400 mb-2"><div className="flex items-center gap-1"><div className="w-2 h-2 bg-slate-200 border border-slate-300 rounded-sm"></div> Cible</div><div className="flex items-center gap-1"><div className="w-2 h-2 bg-purple-500 rounded-sm"></div> Fait</div></div> <div className="flex items-end justify-between h-32 gap-1 mt-4 px-2 relative"> <div className="absolute inset-0 flex flex-col justify-between px-2 pointer-events-none opacity-10"><div className="w-full h-px bg-purple-900 dark:bg-purple-300 border-dashed border-t"></div><div className="w-full h-px bg-purple-900 dark:bg-purple-300 border-dashed border-t"></div><div className="w-full h-px bg-purple-900 dark:bg-purple-300 border-dashed border-t"></div></div> {trimpData.map((trimp, i) => { const realizedTrimp = realizedTrimpData[i] || 0; return ( <div key={i} className="flex-1 flex flex-col items-center gap-1 group cursor-pointer relative h-full justify-end z-10" onClick={() => setSelectedPoint(i === selectedPoint ? null : i)}> <div className="w-full relative flex items-end justify-center h-full rounded-t-sm"> <div className="w-full absolute bottom-0 bg-slate-100 dark:bg-slate-700 border-2 border-dashed border-slate-300 dark:border-slate-600 opacity-60 rounded-t-sm z-0" style={{ height: `${(trimp / maxTrimp) * 80 + 10}%` }}></div> <div className={`w-full absolute bottom-0 transition-all duration-1000 z-10 rounded-t-sm ${selectedPoint === i ? 'bg-purple-600' : 'bg-gradient-to-t from-purple-300 to-purple-500'}`} style={{ height: `${(realizedTrimp / maxTrimp) * 80 + 10}%` }}></div> </div> <span className={`text-[9px] font-mono z-20 ${selectedPoint === i ? 'text-purple-600 font-bold scale-125' : 'text-slate-400'}`}>S{i + 1}</span> </div> )})} </div> {selectedPoint !== null && ( <div className="bg-purple-50 dark:bg-purple-900/30 p-3 rounded-xl border border-purple-100 dark:border-purple-800 text-xs text-purple-800 dark:text-purple-200 animate-in slide-in-from-top-2 flex items-start gap-2 shadow-sm"> <Flame size={16} className="shrink-0 mt-0.5 text-purple-600"/> <div> <span className="font-bold block mb-1">Charge Semaine {selectedPoint + 1}</span> <div className="flex gap-4 mb-1 text-[10px]"><span className="text-slate-500 dark:text-slate-400">Prévu: {trimpData[selectedPoint]}</span><span className="font-black bg-white dark:bg-slate-800 px-1.5 py-0.5 rounded border border-purple-100 dark:border-purple-800">Fait: {realizedTrimpData[selectedPoint] || 0}</span></div> <div className="text-slate-600 dark:text-slate-300 italic">{realizedTrimpData[selectedPoint] > trimpData[selectedPoint] ? "Attention, charge plus élevée que prévu." : "Charge maîtrisée."}</div> </div> </div> )} </div> ); };
 export const InstallGuide = ({ onClose }: {onClose: () => void}) => ( <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-900/90 backdrop-blur-md animate-in fade-in duration-300"> <div className="bg-white w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden text-center p-8 relative animate-in zoom-in-95 duration-300"> <button onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition"><X size={24}/></button> <div className="w-16 h-16 bg-indigo-100 rounded-2xl flex items-center justify-center mx-auto mb-6 text-indigo-600"><Smartphone size={32} /></div> <h3 className="text-2xl font-black text-slate-800 mb-2">Installer l'App 📱</h3> <p className="text-sm text-slate-500 mb-6 leading-relaxed">Pour une meilleure expérience, ajoutez C-Lab Performance à votre écran d'accueil. C'est gratuit et sans téléchargement !</p> <div className="space-y-4 text-left bg-slate-50 p-4 rounded-xl border border-slate-100"> <div className="flex items-center gap-3"><span className="w-6 h-6 flex items-center justify-center bg-indigo-600 text-white rounded-full text-xs font-bold">1</span><span className="text-sm text-slate-700">Appuyez sur le bouton <strong>Partager</strong> <Share size={14} className="inline ml-1"/> dans Safari.</span></div> <div className="flex items-center gap-3"><span className="w-6 h-6 flex items-center justify-center bg-indigo-600 text-white rounded-full text-xs font-bold">2</span><span className="text-sm text-slate-700">Faites défiler vers le bas.</span></div> <div className="flex items-center gap-3"><span className="w-6 h-6 flex items-center justify-center bg-indigo-600 text-white rounded-full text-xs font-bold">3</span><span className="text-sm text-slate-700">Sélectionnez <strong>"Sur l'écran d'accueil"</strong>.</span></div> </div> <button onClick={onClose} className="mt-6 w-full py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition">C'est compris !</button> </div> </div> );
 
-export const ProfileView = ({ userData, setUserData, stats, darkMode, setDarkMode, setShowInstallGuide }: any) => {
+export const ProfileView = ({ userData, setUserData, stats, darkMode, setDarkMode, setShowInstallGuide, stravaData, setStravaData }: any) => {
     const [showDataModal, setShowDataModal] = useState(false);
     const [showOneRMModal, setShowOneRMModal] = useState(false);
     const [showPlateModal, setShowPlateModal] = useState(false);
     const [showHeartRateModal, setShowHeartRateModal] = useState(false);
+
+    const handleConnectStrava = async () => {
+        try {
+            const response = await fetch('/api/auth/strava/url');
+            const { url } = await response.json();
+            
+            const width = 600;
+            const height = 700;
+            const left = window.screen.width / 2 - width / 2;
+            const top = window.screen.height / 2 - height / 2;
+
+            const authWindow = window.open(
+                url,
+                'Strava Auth',
+                `width=${width},height=${height},top=${top},left=${left}`
+            );
+
+            const handleMessage = (event: MessageEvent) => {
+                if (event.data?.type === 'STRAVA_AUTH_SUCCESS') {
+                    const { accessToken, athlete, expiresAt } = event.data.payload;
+                    setStravaData({
+                        accessToken,
+                        athlete,
+                        expiresAt,
+                        lastSync: new Date().toISOString(),
+                        activities: []
+                    });
+                    window.removeEventListener('message', handleMessage);
+                }
+            };
+
+            window.addEventListener('message', handleMessage);
+        } catch (error) {
+            console.error("Erreur connexion Strava", error);
+            alert("Erreur lors de la connexion à Strava.");
+        }
+    };
+
+    const handleSyncStrava = async () => {
+        if (!stravaData?.accessToken) return;
+        
+        try {
+            const response = await fetch('/api/strava/activities', {
+                headers: {
+                    'Authorization': `Bearer ${stravaData.accessToken}`
+                }
+            });
+            
+            if (response.ok) {
+                const activities = await response.json();
+                setStravaData({
+                    ...stravaData,
+                    lastSync: new Date().toISOString(),
+                    activities
+                });
+                alert(`${activities.length} activités synchronisées !`);
+            } else {
+                alert("Erreur lors de la synchronisation. Reconnectez-vous.");
+            }
+        } catch (error) {
+            console.error("Erreur sync Strava", error);
+            alert("Erreur réseau lors de la synchronisation.");
+        }
+    };
 
     // Default PR structure if not present
     const defaultPRs = {
@@ -651,6 +715,63 @@ export const ProfileView = ({ userData, setUserData, stats, darkMode, setDarkMod
                         <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${userData.hapticEnabled ? 'left-7' : 'left-1'}`}></div>
                     </button>
                 </div>
+            </div>
+
+            {/* STRAVA INTEGRATION */}
+            <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-sm border border-slate-100 dark:border-slate-700">
+                <h4 className="font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2"><Activity size={18} className="text-orange-600"/> Intégration Strava</h4>
+                
+                {!stravaData?.accessToken ? (
+                    <div className="text-center">
+                        <p className="text-xs text-slate-500 mb-4">Connectez votre compte Strava pour importer automatiquement vos activités et suivre votre progression.</p>
+                        <button 
+                            onClick={handleConnectStrava}
+                            className="w-full py-3 bg-[#FC4C02] text-white font-bold rounded-xl hover:bg-[#E34402] transition shadow-lg shadow-orange-200 flex items-center justify-center gap-2"
+                        >
+                            Connecter avec Strava
+                        </button>
+                    </div>
+                ) : (
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-700 p-3 rounded-xl border border-slate-100 dark:border-slate-600">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 font-bold">
+                                    {stravaData.athlete?.firstname?.[0]}{stravaData.athlete?.lastname?.[0]}
+                                </div>
+                                <div>
+                                    <div className="text-xs font-bold text-slate-700 dark:text-white">Connecté en tant que {stravaData.athlete?.firstname}</div>
+                                    <div className="text-[10px] text-slate-400">Dernière synchro : {stravaData.lastSync ? new Date(stravaData.lastSync).toLocaleDateString() : 'Jamais'}</div>
+                                </div>
+                            </div>
+                            <button onClick={() => setStravaData(null)} className="text-xs text-rose-500 font-bold hover:underline">Déconnecter</button>
+                        </div>
+
+                        <button 
+                            onClick={handleSyncStrava}
+                            className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition shadow-lg shadow-indigo-200 flex items-center justify-center gap-2"
+                        >
+                            <Activity size={16}/> Synchroniser maintenant
+                        </button>
+
+                        {stravaData.activities && stravaData.activities.length > 0 && (
+                            <div className="space-y-2 mt-4">
+                                <h5 className="text-xs font-bold text-slate-400 uppercase">Dernières Activités</h5>
+                                {stravaData.activities.slice(0, 3).map((activity: any) => (
+                                    <div key={activity.id} className="flex items-center justify-between p-2 bg-slate-50 dark:bg-slate-700 rounded-lg border border-slate-100 dark:border-slate-600">
+                                        <div className="flex items-center gap-2">
+                                            <div className="text-xl">{activity.type === 'Run' ? '🏃' : activity.type === 'Ride' ? '🚴' : '🏋️'}</div>
+                                            <div>
+                                                <div className="text-xs font-bold text-slate-700 dark:text-white">{activity.name}</div>
+                                                <div className="text-[10px] text-slate-400">{(activity.distance / 1000).toFixed(2)} km • {formatStopwatch(activity.moving_time)}</div>
+                                            </div>
+                                        </div>
+                                        <div className="text-[10px] font-bold text-slate-400">{new Date(activity.start_date).toLocaleDateString()}</div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
 
             {/* METABOLISM & LIFESTYLE */}

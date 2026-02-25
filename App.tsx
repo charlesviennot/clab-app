@@ -69,11 +69,12 @@ export default function App() {
   const [completedExercises, setCompletedExercises] = useState<Set<string>>(() => loadState('completedExercises', new Set()));
   const [exercisesLog, setExercisesLog] = useState<any>(() => loadState('exercisesLog', {}));
   const [nutritionLog, setNutritionLog] = useState<any>(() => loadState('nutritionLog', {})); 
+  const [stravaData, setStravaData] = useState<any>(() => loadState('stravaData', null));
   const [calculationMode, setCalculationMode] = useState('weeks'); 
   const [darkMode, setDarkMode] = useState<boolean>(() => loadState('darkMode', false));
   const [showFoodSearch, setShowFoodSearch] = useState(false);
 
-  useEffect(() => { const dataToSave = { step, activeTab, userData, plan, expandedWeek, completedSessions: Array.from(completedSessions), completedExercises: Array.from(completedExercises), exercisesLog, nutritionLog, darkMode }; localStorage.setItem('clab_storage', JSON.stringify(dataToSave)); }, [step, activeTab, userData, plan, expandedWeek, completedSessions, completedExercises, exercisesLog, nutritionLog, darkMode]);
+  useEffect(() => { const dataToSave = { step, activeTab, userData, plan, expandedWeek, completedSessions: Array.from(completedSessions), completedExercises: Array.from(completedExercises), exercisesLog, nutritionLog, stravaData, darkMode }; localStorage.setItem('clab_storage', JSON.stringify(dataToSave)); }, [step, activeTab, userData, plan, expandedWeek, completedSessions, completedExercises, exercisesLog, nutritionLog, stravaData, darkMode]);
 
   const [modalExercise, setModalExercise] = useState<any>(null); 
   const [filteredSessionIds, setFilteredSessionIds] = useState<string[] | null>(null);
@@ -983,7 +984,7 @@ export default function App() {
         ) : activeTab === 'nutrition' ? (
              <NutritionView userData={userData} setUserData={setUserData} nutritionLog={nutritionLog} setNutritionLog={setNutritionLog} showFoodSearch={showFoodSearch} setShowFoodSearch={setShowFoodSearch} setShowDataModal={setShowDataModal} />
         ) : activeTab === 'profile' ? (
-             <ProfileView userData={userData} setUserData={setUserData} stats={stats} darkMode={darkMode} setDarkMode={setDarkMode} setShowInstallGuide={setShowInstallGuide} />
+             <ProfileView userData={userData} setUserData={setUserData} stats={stats} darkMode={darkMode} setDarkMode={setDarkMode} setShowInstallGuide={setShowInstallGuide} stravaData={stravaData} setStravaData={setStravaData} />
         ) : (
           <div className="space-y-6 animate-in slide-in-from-left-4">
             <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 p-6">
