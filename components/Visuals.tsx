@@ -465,16 +465,32 @@ export const ProfileView = ({ userData, setUserData, stats, darkMode, setDarkMod
                 `width=${width},height=${height},top=${top},left=${left}`
             );
 
-            const handleMessage = (event: MessageEvent) => {
+            const handleMessage = async (event: MessageEvent) => {
                 if (event.data?.type === 'STRAVA_AUTH_SUCCESS') {
                     const { accessToken, athlete, expiresAt } = event.data.payload;
+                    
+                    // Fetch activities immediately
+                    let activities = [];
+                    try {
+                        const response = await fetch('/api/strava/activities', {
+                            headers: { 'Authorization': `Bearer ${accessToken}` }
+                        });
+                        if (response.ok) {
+                            activities = await response.json();
+                        }
+                    } catch (e) {
+                        console.error("Failed to fetch activities automatically", e);
+                    }
+
                     setStravaData({
                         accessToken,
                         athlete,
                         expiresAt,
                         lastSync: new Date().toISOString(),
-                        activities: []
+                        activities: activities
                     });
+                    
+                    alert(`Compte connecté ! ${activities.length} activités récupérées.`);
                     window.removeEventListener('message', handleMessage);
                 }
             };

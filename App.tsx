@@ -108,15 +108,20 @@ export default function App() {
                 window.close();
               } else {
                 // Fallback if not in popup (should not happen with current flow)
+                const activitiesResponse = await fetch('/api/strava/activities', {
+                    headers: { 'Authorization': `Bearer ${data.accessToken}` }
+                });
+                const activities = activitiesResponse.ok ? await activitiesResponse.json() : [];
+
                 setStravaData({
                     accessToken: data.accessToken,
                     athlete: data.athlete,
                     expiresAt: data.expiresAt,
                     lastSync: new Date().toISOString(),
-                    activities: []
+                    activities: activities
                 });
                 window.history.replaceState({}, document.title, "/");
-                alert("Compte Strava connecté !");
+                alert(`Compte Strava connecté ! ${activities.length} activités récupérées.`);
               }
             } else {
               const errData = await response.json();
