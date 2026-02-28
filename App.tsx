@@ -564,7 +564,14 @@ export default function App() {
                                                 type: "WeightTraining",
                                                 start_date_local: new Date().toISOString(),
                                                 elapsed_time: lastCompletedData.duration,
-                                                description: `Séance réalisée avec C-Lab Performance.\n\n${lastCompletedData.session.exercises?.map((e:any) => `- ${e.name}`).join('\n') || ''}`
+                                                description: `🔥 Séance validée sur C-Lab Performance\nL'application d'ingénierie sportive.\n\n📊 Détails de la séance :\n${lastCompletedData.session.exercises?.map((e:any, i:number) => {
+                                                    const log = exercisesLog[`${lastCompletedData.session.id}-ex-${i}`];
+                                                    if (log && log.sets && log.sets.length > 0) {
+                                                        const bestWeight = Math.max(...log.sets.map((s:any)=>parseFloat(s.weight)||0));
+                                                        return `- ${e.name} : ${log.sets.length} séries (Max: ${bestWeight}kg)`;
+                                                    }
+                                                    return `- ${e.name} : ${e.sets}x${e.reps} @ ${e.weight || 0}kg`;
+                                                }).join('\n') || ''}`
                                             })
                                         });
 
@@ -588,7 +595,7 @@ export default function App() {
                             </button>
                         )}
                         
-                        <button onClick={() => downloadShareImage(lastCompletedData.session, lastCompletedData.duration, lastCompletedData.date)} className="w-full py-4 bg-white border-2 border-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition shadow-sm flex items-center justify-center gap-2"><Camera size={20}/> Partager en Image</button>
+                        <button onClick={() => downloadShareImage(lastCompletedData.session, lastCompletedData.duration, lastCompletedData.date, exercisesLog)} className="w-full py-4 bg-white border-2 border-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition shadow-sm flex items-center justify-center gap-2"><Camera size={20}/> Partager en Image</button>
                         <button onClick={() => setLastCompletedData(null)} className="w-full py-3 text-slate-400 font-bold hover:text-slate-600 transition">Fermer</button>
                     </div>
                 </div>

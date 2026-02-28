@@ -818,7 +818,7 @@ export const ProfileView = ({ userData, setUserData, stats, darkMode, setDarkMod
                                             type: "WeightTraining",
                                             start_date_local: new Date().toISOString(),
                                             elapsed_time: lastSession.duration ? parseInt(lastSession.duration) * 60 : 3600, // Default 1h if unknown
-                                            description: `Séance de musculation réalisée avec C-Lab Performance.\n\n${lastSession.exercises?.map((e:any) => `- ${e.name}: ${e.sets}x${e.reps} @ ${e.weight}kg`).join('\n') || ''}`
+                                            description: `🔥 Séance validée sur C-Lab Performance\nL'application d'ingénierie sportive.\n\n📊 Détails de la séance :\n${lastSession.exercises?.map((e:any) => `- ${e.name} : ${e.sets}x${e.reps} @ ${e.weight || 0}kg`).join('\n') || ''}`
                                         })
                                     });
 
