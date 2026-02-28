@@ -7,7 +7,7 @@ import {
   Info, BarChart3, GraduationCap, ShieldCheck, Layers, FlaskConical,
   Coffee, Smartphone, Medal, Play, Download, Camera, Footprints,
   Sparkles, Dumbbell, History, Utensils, BookOpen, TrendingUp, Activity,
-  Ruler, Square, Brain, Timer, Home, HeartPulse, MapPin, Navigation, User, Save, FileJson
+  Ruler, Square, Brain, Timer, Home, HeartPulse, MapPin, Navigation, User, Save, FileJson, Upload
 } from 'lucide-react';
 import { LOGO_URL, DONATION_URL } from './constants';
 import { RUN_PROTOCOLS, STRENGTH_PROTOCOLS } from './data/protocols';
