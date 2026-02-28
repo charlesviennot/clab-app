@@ -451,7 +451,7 @@ export const ProfileView = ({ userData, setUserData, stats, darkMode, setDarkMod
             // Generate URL Client-Side to avoid server issues
             const clientId = "205697";
             const redirectUri = `${window.location.origin}/auth/callback`;
-            const scope = "activity:read_all,profile:read_all";
+            const scope = "activity:read_all,profile:read_all,activity:write";
             const authUrl = `https://www.strava.com/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${scope}&approval_prompt=auto`;
             
             const width = 600;
@@ -827,7 +827,7 @@ export const ProfileView = ({ userData, setUserData, stats, darkMode, setDarkMod
                                         handleSyncStrava(); // Refresh list
                                     } else {
                                         const err = await response.json();
-                                        alert(`Erreur d'export : ${err.details || err.error}`);
+                                        alert(`Erreur d'export : ${typeof err.details === 'object' ? JSON.stringify(err.details) : (err.details || err.error)}`);
                                     }
                                 } catch (e: any) {
                                     console.error(e);

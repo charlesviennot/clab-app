@@ -572,7 +572,7 @@ export default function App() {
                                             alert("Séance envoyée sur Strava avec succès ! 🚀");
                                         } else {
                                             const err = await response.json();
-                                            alert(`Erreur Strava : ${err.details || err.error}`);
+                                            alert(`Erreur Strava : ${typeof err.details === 'object' ? JSON.stringify(err.details) : (err.details || err.error)}`);
                                         }
                                     } catch (e) {
                                         alert("Erreur réseau lors de l'envoi.");
