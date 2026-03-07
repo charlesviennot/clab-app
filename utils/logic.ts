@@ -309,6 +309,46 @@ ${workoutXml}    </workout>
     shareOrDownloadFile(zwo, `clab-workout-${session.id}.zwo`, 'application/xml');
 };
 
+export const downloadWorkoutJSON = (session: any) => {
+    const steps = parseWorkoutSteps(session.exercises || []);
+    
+    // Format specifically for WorkOutDoors / generic JSON import
+    const jsonWorkout = {
+        name: session.name || session.type,
+        activity: "running",
+        steps: steps.map(step => {
+            if (step.type === 'IntervalsT') {
+                return {
+                    type: "interval",
+                    repeats: step.Repeat,
+                    steps: [
+                        {
+                            type: "work",
+                            duration: { type: "time", seconds: step.OnDuration }
+                        },
+                        {
+                            type: "recover",
+                            duration: { type: "time", seconds: step.OffDuration }
+                        }
+                    ]
+                };
+            } else {
+                let stepType = "work";
+                if (step.type === 'Warmup') stepType = "warmup";
+                if (step.type === 'Cooldown') stepType = "cooldown";
+                
+                return {
+                    type: stepType,
+                    duration: { type: "time", seconds: step.Duration }
+                };
+            }
+        })
+    };
+
+    const jsonString = JSON.stringify(jsonWorkout, null, 2);
+    shareOrDownloadFile(jsonString, `clab-workout-${session.id}.json`, 'application/json');
+};
+
 export const downloadWorkoutTCX = (session: any) => {
     const steps = parseWorkoutSteps(session.exercises || []);
     let stepsXml = '';

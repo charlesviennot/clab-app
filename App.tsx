@@ -13,7 +13,7 @@ import {
 import { LOGO_URL, DONATION_URL } from './constants';
 import { RUN_PROTOCOLS, STRENGTH_PROTOCOLS } from './data/protocols';
 import { calcDist, formatPace, formatGoalTime, formatStopwatch, getTimeConstraints, getPaceForWeek, vibrate, checkAndRefreshStravaToken } from './utils/helpers';
-import { getRecommendedSchedule, downloadShareImage, downloadTCX, downloadWorkoutZWO, downloadWorkoutTCX } from './utils/logic';
+import { getRecommendedSchedule, downloadShareImage, downloadTCX, downloadWorkoutZWO, downloadWorkoutTCX, downloadWorkoutJSON } from './utils/logic';
 import { RpeBadge, WorkoutViz, LiveSessionTimer, InteractiveInterference, PolarizationChart, WeeklyVolumeChart, BanisterChart, TrimpChart, InstallGuide, RunTracker, ProfileView, StatCard, AcwrGauge, DailyBriefing } from './components/Visuals';
 import { ExerciseCatalog, ExerciseModal, SessionHistoryDetail, DataManagementModal } from './components/Modals';
 import { NutritionView } from './components/Nutrition';
@@ -1054,10 +1054,13 @@ export default function App() {
                                                                 </div>
                                                                 <div className="flex gap-2">
                                                                     <button onClick={() => downloadWorkoutZWO(session)} className="flex-1 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-xl flex items-center justify-center gap-1.5 font-bold text-xs shadow-sm transition-all">
-                                                                        <Download size={14}/> WorkOutDoors (.zwo)
+                                                                        <Download size={14}/> Zwift (.zwo)
                                                                     </button>
                                                                     <button onClick={() => downloadWorkoutTCX(session)} className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl flex items-center justify-center gap-1.5 font-bold text-xs shadow-sm transition-all">
                                                                         <Download size={14}/> Garmin (.tcx)
+                                                                    </button>
+                                                                    <button onClick={() => downloadWorkoutJSON(session)} className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl flex items-center justify-center gap-1.5 font-bold text-xs shadow-sm transition-all">
+                                                                        <Download size={14}/> WOD (.json)
                                                                     </button>
                                                                 </div>
                                                             </div>
