@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import confetti from 'canvas-confetti';
 import { 
   Award, Clock, ChevronDown, ChevronUp, AlertTriangle, ThumbsDown, 
   ArrowLeft, ArrowRight, RotateCcw, Target, Calendar, Minus, Plus, Share, 
@@ -11,8 +12,8 @@ import {
 } from 'lucide-react';
 import { LOGO_URL, DONATION_URL } from './constants';
 import { RUN_PROTOCOLS, STRENGTH_PROTOCOLS } from './data/protocols';
-import { calcDist, formatPace, formatGoalTime, formatStopwatch, getTimeConstraints, getPaceForWeek, vibrate } from './utils/helpers';
-import { getRecommendedSchedule, downloadShareImage, downloadTCX } from './utils/logic';
+import { calcDist, formatPace, formatGoalTime, formatStopwatch, getTimeConstraints, getPaceForWeek, vibrate, checkAndRefreshStravaToken } from './utils/helpers';
+import { getRecommendedSchedule, downloadShareImage, downloadTCX, downloadWorkoutZWO, downloadWorkoutTCX } from './utils/logic';
 import { RpeBadge, WorkoutViz, LiveSessionTimer, InteractiveInterference, PolarizationChart, WeeklyVolumeChart, BanisterChart, TrimpChart, InstallGuide, RunTracker, ProfileView, StatCard, AcwrGauge, DailyBriefing } from './components/Visuals';
 import { ExerciseCatalog, ExerciseModal, SessionHistoryDetail, DataManagementModal } from './components/Modals';
 import { NutritionView } from './components/Nutrition';
@@ -42,6 +43,7 @@ export default function App() {
       deficitIntensity: 50, // Default 50%
       hapticEnabled: true, // Haptic Feedback
       heartRate: { max: 180, rest: 60 },
+      vo2maxHistory: [],
       personalRecords: {
         squat: { val: '', date: '' },
         bench: { val: '', date: '' },
@@ -115,6 +117,7 @@ export default function App() {
 
                 setStravaData({
                     accessToken: data.accessToken,
+                    refreshToken: data.refreshToken,
                     athlete: data.athlete,
                     expiresAt: data.expiresAt,
                     lastSync: new Date().toISOString(),
@@ -161,13 +164,14 @@ export default function App() {
         const { weekNumber, sessionId } = e.detail;
         setActiveTab('plan');
         setStep('result');
+        setFilteredSessionIds(null);
         setExpandedWeek(weekNumber);
         // Timeout to allow render
         setTimeout(() => {
             setExpandedSession(sessionId);
             const el = document.getElementById(sessionId);
             if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }, 100);
+        }, 200);
     };
 
     window.addEventListener('open-session', handleOpenSession);
@@ -182,6 +186,8 @@ export default function App() {
       if (dist === '21k') { defaultTime = 105; defaultDuration = 12; } 
       if (dist === '42k') { defaultTime = 240; defaultDuration = 16; } 
       if (dist === 'hyrox') { defaultTime = 90; defaultDuration = 10; } 
+      if (dist === 'vo2max') { defaultTime = 50; defaultDuration = 8; } 
+      if (dist === 'calories') { defaultTime = 50; defaultDuration = 8; } 
       
       setUserData({ 
           ...userData, 
@@ -306,6 +312,14 @@ export default function App() {
           if(dist) (completeData.session as any).distance = (dist / 1000).toFixed(2) + " km";
           setLastCompletedData(completeData); 
           if(userData.hapticEnabled) vibrate([100, 50, 100]);
+          
+          // Trigger confetti
+          confetti({
+              particleCount: 150,
+              spread: 80,
+              origin: { y: 0.6 },
+              colors: ['#4f46e5', '#e11d48', '#10b981', '#f59e0b']
+          });
       } 
   };
 
@@ -382,6 +396,8 @@ export default function App() {
                 if (targetDistance === '5k') { sessionType = "VMA Courte"; sessionExo = RUN_PROTOCOLS.interval_short; } 
                 else if (targetDistance === '10k') { const cycle = i % 4; if (cycle === 1) { sessionType = "VMA Courte"; sessionExo = RUN_PROTOCOLS.interval_short; } else if (cycle === 2) { sessionType = "Seuil Anaérobie"; sessionExo = RUN_PROTOCOLS.threshold; } else if (cycle === 3) { sessionType = "Côtes / Force"; sessionExo = RUN_PROTOCOLS.hills; } else { sessionType = "VMA Longue"; sessionExo = RUN_PROTOCOLS.interval_long; } } 
                 else if (targetDistance === '21k') { sessionType = "Seuil Long"; sessionExo = RUN_PROTOCOLS.threshold; } 
+                else if (targetDistance === 'vo2max') { sessionType = (i%2===0) ? "VMA Courte" : "VMA Longue"; sessionExo = (i%2===0) ? RUN_PROTOCOLS.interval_short : RUN_PROTOCOLS.interval_long; }
+                else if (targetDistance === 'calories') { sessionType = "Seuil Anaérobie"; sessionExo = RUN_PROTOCOLS.threshold; }
                 else { sessionType = (i%2===0) ? "Allure Marathon" : "Seuil"; sessionExo = (i%2===0) ? RUN_PROTOCOLS.long_run : RUN_PROTOCOLS.threshold; } 
                 sessions.push({ id: `w${i}-r2`, day: "RUN 2", category: 'run', type: sessionType, structure: 'interval', intensity: 'high', duration: "60 min", durationMin: 60, distance: "Varié", paceTarget: paces.interval, paceGap: paces.gap, rpe: 8, description: `Séance clé pour ${targetDistance}.`, scienceNote: "Développement moteur.", planningAdvice: "Fraîcheur requise.", exercises: sessionExo }); 
             } 
@@ -391,6 +407,8 @@ export default function App() {
                 let longRunType = "Sortie Longue"; 
                 if (targetDistance === '21k') { longRunDuration = 80 + (i * 5); if (longRunDuration > 130) longRunDuration = 90; } 
                 if (targetDistance === '42k') { if (i % 3 === 0) { longRunDuration = 90; longRunType = "Sortie Longue (Récup)"; } else { longRunDuration = 100 + (i * 10); if (longRunDuration > 180) longRunDuration = 150; } } 
+                if (targetDistance === 'vo2max') { longRunDuration = 60; longRunType = "Endurance Fondamentale"; }
+                if (targetDistance === 'calories') { longRunDuration = 75 + (i * 5); if (longRunDuration > 120) longRunDuration = 120; longRunType = "Sortie Longue (Fat Burn)"; }
                 if (isTaper) longRunDuration = longRunDuration * 0.6; 
                 sessions.push({ id: `w${i}-r3`, day: "RUN 3", category: 'run', type: longRunType, structure: 'steady', intensity: 'low', duration: `${longRunDuration} min`, durationMin: longRunDuration, distance: calcDist(longRunDuration, paces.valEasy), paceTarget: paces.easyRange, paceGap: paces.gap, rpe: 4, description: "Volume indispensable. Hydratation test.", scienceNote: "Endurance fondamentale.", planningAdvice: "Le weekend.", exercises: RUN_PROTOCOLS.long_run }); 
             }
@@ -476,11 +494,11 @@ export default function App() {
                     {userData.raceDate && <div className="text-[10px] text-slate-400 font-bold uppercase mt-1">Objectif le {new Date(userData.raceDate).toLocaleDateString()}</div>}
                 </div>
             </div>
-             <div className="flex w-full sm:w-auto bg-slate-800 rounded-lg p-1">
-                    <button onClick={() => setActiveTab('profile')} className={`flex-1 sm:flex-none px-4 py-2 rounded-md text-xs font-bold transition text-center flex items-center justify-center gap-2 ${activeTab === 'profile' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}><User size={14}/> Profil</button>
-                    <button onClick={() => setActiveTab('plan')} className={`flex-1 sm:flex-none px-4 py-2 rounded-md text-xs font-bold transition text-center ${activeTab === 'plan' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}>Programme</button>
-                    <button onClick={() => setActiveTab('stats')} className={`flex-1 sm:flex-none px-4 py-2 rounded-md text-xs font-bold transition text-center ${activeTab === 'stats' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}>Science</button>
-                    <button onClick={() => setActiveTab('nutrition')} className={`flex-1 sm:flex-none px-4 py-2 rounded-md text-xs font-bold transition text-center flex items-center justify-center gap-1 ${activeTab === 'nutrition' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}>Nutrition</button>
+             <div className="flex w-full sm:w-auto bg-slate-800 rounded-lg p-1 overflow-x-auto">
+                    <button onClick={() => setActiveTab('profile')} className={`flex-1 sm:flex-none px-2 sm:px-4 py-2 rounded-md text-[10px] sm:text-xs font-bold transition text-center flex items-center justify-center gap-1 sm:gap-2 ${activeTab === 'profile' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}><User size={14} className="shrink-0"/> Profil</button>
+                    <button onClick={() => setActiveTab('plan')} className={`flex-1 sm:flex-none px-2 sm:px-4 py-2 rounded-md text-[10px] sm:text-xs font-bold transition text-center ${activeTab === 'plan' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}><span className="hidden sm:inline">Programme</span><span className="sm:hidden">Plan</span></button>
+                    <button onClick={() => setActiveTab('stats')} className={`flex-1 sm:flex-none px-2 sm:px-4 py-2 rounded-md text-[10px] sm:text-xs font-bold transition text-center ${activeTab === 'stats' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}>Science</button>
+                    <button onClick={() => setActiveTab('nutrition')} className={`flex-1 sm:flex-none px-2 sm:px-4 py-2 rounded-md text-[10px] sm:text-xs font-bold transition text-center flex items-center justify-center gap-1 ${activeTab === 'nutrition' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}><Utensils size={14} className="shrink-0"/> <span className="hidden sm:inline">Nutrition</span><span className="sm:hidden">Nutri</span></button>
               </div>
             </div>
         </div>
@@ -513,6 +531,7 @@ export default function App() {
                 onClose={() => setModalExercise(null)} 
                 onComplete={(uniqueId: string, isExercise: boolean, data: any) => handleSessionCompleteFromModal(uniqueId, isExercise, data)}
                 savedData={exercisesLog[`${modalExercise.id}-ex-${modalExercise.index}`]} 
+                exercisesLog={exercisesLog}
             />
         )}
 
@@ -524,7 +543,31 @@ export default function App() {
             />
         )}
 
-        {lastCompletedData && (
+        {lastCompletedData && (() => {
+            let totalTonnage = 0;
+            if (lastCompletedData.session.exercises) {
+                lastCompletedData.session.exercises.forEach((ex: any, idx: number) => {
+                    const log = exercisesLog[`${lastCompletedData.session.id}-ex-${idx}`];
+                    if (log && log.weights) {
+                        log.weights.forEach((w: string, i: number) => {
+                            const weight = parseFloat(w) || 0;
+                            let reps = 0;
+                            if (log.reps && log.reps[i]) {
+                                reps = parseFloat(log.reps[i]) || 0;
+                            } else {
+                                if (typeof ex.reps === 'number') reps = ex.reps;
+                                else if (typeof ex.reps === 'string') {
+                                    const match = ex.reps.match(/(\d+)/);
+                                    if (match) reps = parseInt(match[1]);
+                                }
+                            }
+                            totalTonnage += weight * reps;
+                        });
+                    }
+                });
+            }
+
+            return (
             <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/95 backdrop-blur-md animate-in fade-in duration-300">
                 <div className="bg-white w-full max-w-sm rounded-3xl shadow-2xl p-8 text-center relative animate-in zoom-in-95 slide-in-from-bottom-4 duration-500">
                     <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6 text-green-600 animate-bounce">
@@ -547,17 +590,24 @@ export default function App() {
                                 <div className="text-xl font-black text-indigo-600">{lastCompletedData.session.distance}</div>
                             </div>
                         )}
+                        {!lastCompletedData.session.distance && totalTonnage > 0 && (
+                            <div className="text-center col-span-2 border-t border-slate-200 pt-4 mt-2">
+                                <div className="text-xs font-bold text-slate-400 uppercase">Tonnage Total</div>
+                                <div className="text-xl font-black text-indigo-600">{totalTonnage.toLocaleString()} kg</div>
+                            </div>
+                        )}
                     </div>
                     <div className="space-y-3">
                         {stravaData?.accessToken ? (
                             <button 
                                 onClick={async () => {
                                     try {
+                                        const validStravaData = await checkAndRefreshStravaToken(stravaData, setStravaData);
                                         const response = await fetch('/api/strava/upload', {
                                             method: 'POST',
                                             headers: {
                                                 'Content-Type': 'application/json',
-                                                'Authorization': `Bearer ${stravaData.accessToken}`
+                                                'Authorization': `Bearer ${validStravaData.accessToken}`
                                             },
                                             body: JSON.stringify({
                                                 name: lastCompletedData.session.name || lastCompletedData.session.type || "Séance C-Lab",
@@ -600,7 +650,8 @@ export default function App() {
                     </div>
                 </div>
             </div>
-        )}
+            );
+        })()}
 
         {catalogSessionId && <ExerciseCatalog onClose={() => setCatalogSessionId(null)} onSelect={(ex: any) => handleAddExercise(ex)} />}
 
@@ -610,20 +661,24 @@ export default function App() {
                 <Award className="text-indigo-600"/> Objectif Principal
             </h2>
 
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                {['5k', '10k', '21k', '42k', 'hyrox'].map((type) => (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {['5k', '10k', '21k', '42k', 'hyrox', 'vo2max', 'calories'].map((type) => (
                     <button 
                         key={type}
                         onClick={() => handleDistanceSelect(type)}
                         className={`py-3 px-2 rounded-xl text-sm font-black transition-all ${userData.targetDistance === type 
-                            ? type === 'hyrox' ? 'bg-yellow-400 text-yellow-900 shadow-lg scale-105 ring-2 ring-yellow-200' : 'bg-gradient-to-r from-indigo-600 to-rose-600 text-white shadow-lg scale-105 ring-2 ring-indigo-200' 
+                            ? type === 'hyrox' ? 'bg-yellow-400 text-yellow-900 shadow-lg scale-105 ring-2 ring-yellow-200' 
+                            : type === 'vo2max' ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg scale-105 ring-2 ring-emerald-200'
+                            : type === 'calories' ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg scale-105 ring-2 ring-orange-200'
+                            : 'bg-gradient-to-r from-indigo-600 to-rose-600 text-white shadow-lg scale-105 ring-2 ring-indigo-200' 
                             : 'bg-white border border-slate-200 text-slate-400 hover:bg-slate-50'}`}
                     >
-                        {type === 'hyrox' ? 'HYROX' : type.toUpperCase()}
+                        {type === 'hyrox' ? 'HYROX' : type === 'vo2max' ? 'VO2 MAX' : type === 'calories' ? 'CALORIES' : type.toUpperCase()}
                     </button>
                 ))}
             </div>
             
+            {!['vo2max', 'calories'].includes(userData.targetDistance) && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-6">
               <div className="space-y-4">
                 <label className="text-xs font-bold text-slate-400 uppercase">
@@ -696,6 +751,7 @@ export default function App() {
                   )}
               </div>
             </div>
+            )}
 
             <div className="space-y-4">
                 <div className="flex justify-between items-center">
@@ -987,13 +1043,23 @@ export default function App() {
                                                                 hapticEnabled={userData.hapticEnabled}
                                                             />
                                                         ) : (
-                                                            <div className="flex gap-2">
-                                                                <button onClick={() => setActiveTimerSessionId(session.id)} className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl flex items-center justify-center gap-2 font-bold text-sm shadow-md transition-all">
-                                                                    <Play size={16} className="fill-white"/> Chrono Simple
-                                                                </button>
-                                                                <button onClick={() => setActiveGPSId(session.id)} className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl flex items-center justify-center gap-2 font-bold text-sm shadow-md transition-all">
-                                                                    <MapPin size={16}/> Mode GPS
-                                                                </button>
+                                                            <div className="flex flex-col gap-2">
+                                                                <div className="flex gap-2">
+                                                                    <button onClick={() => setActiveTimerSessionId(session.id)} className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl flex items-center justify-center gap-2 font-bold text-sm shadow-md transition-all">
+                                                                        <Play size={16} className="fill-white"/> Chrono Simple
+                                                                    </button>
+                                                                    <button onClick={() => setActiveGPSId(session.id)} className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl flex items-center justify-center gap-2 font-bold text-sm shadow-md transition-all">
+                                                                        <MapPin size={16}/> Mode GPS
+                                                                    </button>
+                                                                </div>
+                                                                <div className="flex gap-2">
+                                                                    <button onClick={() => downloadWorkoutZWO(session)} className="flex-1 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-xl flex items-center justify-center gap-1.5 font-bold text-xs shadow-sm transition-all">
+                                                                        <Download size={14}/> WorkOutDoors (.zwo)
+                                                                    </button>
+                                                                    <button onClick={() => downloadWorkoutTCX(session)} className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl flex items-center justify-center gap-1.5 font-bold text-xs shadow-sm transition-all">
+                                                                        <Download size={14}/> Garmin (.tcx)
+                                                                    </button>
+                                                                </div>
                                                             </div>
                                                         )}
                                                     </div>

@@ -16,6 +16,42 @@ export const parseRestTime = (restStr: string | number): number => {
     return 60; 
 };
 
+export const checkAndRefreshStravaToken = async (stravaData: any, setStravaData: (data: any) => void) => {
+    if (!stravaData?.accessToken || !stravaData?.refreshToken || !stravaData?.expiresAt) return stravaData;
+    
+    // Check if token expires in less than 10 minutes (600 seconds)
+    const currentTime = Math.floor(Date.now() / 1000);
+    if (stravaData.expiresAt - currentTime < 600) {
+        try {
+            console.log("Token expired or expiring soon, refreshing...");
+            const response = await fetch('/api/auth/refresh-token', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ refresh_token: stravaData.refreshToken })
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                const newStravaData = {
+                    ...stravaData,
+                    accessToken: data.accessToken,
+                    refreshToken: data.refreshToken,
+                    expiresAt: data.expiresAt
+                };
+                setStravaData(newStravaData);
+                return newStravaData;
+            } else {
+                console.error("Failed to refresh token");
+                return stravaData;
+            }
+        } catch (e) {
+            console.error("Error refreshing token", e);
+            return stravaData;
+        }
+    }
+    return stravaData;
+};
+
 export const formatPace = (val: number): string => {
     if (!val || val === Infinity || isNaN(val)) return "-:--";
     const min = Math.floor(val);
@@ -60,6 +96,9 @@ export const getMuscleActivation = (type: string) => {
 };
 
 export const getTimeConstraints = (distance: string) => {
+    if (['hypertrophy', 'health', 'weight_loss', 'hybrid_lifestyle'].includes(distance)) {
+        return { min: 0, max: 0, step: 0 };
+    }
     switch(distance) {
         case '5k': return { min: 15, max: 50, step: 0.5 };
         case '10k': return { min: 25, max: 90, step: 1 };
@@ -71,6 +110,21 @@ export const getTimeConstraints = (distance: string) => {
 };
 
 export const getPaceForWeek = (week: number, totalWeeks: number, goalTime: number, startPercent: number, difficultyFactor: number, distanceKm: number, currentEstimatedTime: number | null = null) => {
+    if (distanceKm === 0) {
+        return {
+            gap: 0,
+            race: "N/A",
+            threshold: "N/A",
+            interval: "N/A",
+            easy: "N/A",
+            easyRange: "N/A",
+            valEasy: 0,
+            valThreshold: 0,
+            valInterval: 0,
+            valRace: 0
+        };
+    }
+
     const racePace = goalTime / distanceKm;
     let startFactor = 1 + (startPercent / 100);
     
@@ -214,29 +268,53 @@ export const vibrate = (pattern: number | number[] = 50) => {
     }
 };
 
+let sharedAudioContext: AudioContext | null = null;
+
+export const initAudioContext = () => {
+    try {
+        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+        if (!AudioContextClass) return;
+        
+        if (!sharedAudioContext) {
+            sharedAudioContext = new AudioContextClass();
+        }
+        
+        if (sharedAudioContext.state === 'suspended') {
+            sharedAudioContext.resume();
+        }
+    } catch (e) {
+        console.error("AudioContext init failed", e);
+    }
+};
+
 export const playBeep = (freq: number = 800, duration: number = 100, type: OscillatorType = 'sine') => {
-    const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-    if (!AudioContext) return;
-    const ctx = new AudioContext();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    
-    osc.type = type;
-    osc.frequency.value = freq;
-    
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    
-    osc.start();
-    
-    // Smooth fade out to avoid clicking
-    gain.gain.setValueAtTime(0.1, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.00001, ctx.currentTime + (duration/1000));
-    
-    setTimeout(() => {
-        osc.stop();
-        ctx.close();
-    }, duration);
+    try {
+        initAudioContext();
+        if (!sharedAudioContext) return;
+
+        const ctx = sharedAudioContext;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        
+        osc.type = type;
+        osc.frequency.value = freq;
+        
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        
+        osc.start();
+        
+        // Smooth fade out to avoid clicking
+        gain.gain.setValueAtTime(0.1, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.00001, ctx.currentTime + (duration/1000));
+        
+        setTimeout(() => {
+            osc.stop();
+            // Do NOT close the context, we want to reuse it so it doesn't interrupt OS music
+        }, duration);
+    } catch (e) {
+        console.error("Audio play failed", e);
+    }
 };
 
 export const getXpLevel = (totalKm: number, sessionsCount: number) => {

@@ -75,6 +75,37 @@ async function startServer() {
     }
   });
 
+  // 2.5 Refresh Token API (POST)
+  app.post('/api/auth/refresh-token', async (req, res) => {
+    const { refresh_token } = req.body;
+
+    if (!refresh_token) {
+      return res.status(400).json({ error: "No refresh token provided" });
+    }
+
+    try {
+      console.log("Refreshing Strava token...");
+      const tokenResponse = await axios.post('https://www.strava.com/oauth/token', {
+        client_id: "205697",
+        client_secret: "3f263edce5e593f80df1a9ce6e822bb7d847f8a0",
+        grant_type: 'refresh_token',
+        refresh_token: refresh_token
+      });
+
+      const { access_token, refresh_token: new_refresh_token, expires_at } = tokenResponse.data;
+      
+      res.json({
+        accessToken: access_token,
+        refreshToken: new_refresh_token,
+        expiresAt: expires_at
+      });
+
+    } catch (err: any) {
+      console.error('Strava Token Refresh Error:', err.response?.data || err.message);
+      res.status(500).json({ error: "Token Refresh Failed", details: err.message });
+    }
+  });
+
   // 3. Callback Handler (Lightweight HTML)
   // Serves a simple page to handle the callback without loading the full React app
   app.get(['/auth/callback', '/auth/callback/'], (req, res) => {

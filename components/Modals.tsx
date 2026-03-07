@@ -3,10 +3,10 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   X, ListPlus, Search, Dumbbell, Plus, Clock, Footprints, 
   Minus, SkipForward, Check, Square, Activity, Timer, 
-  Brain, Target, CheckCircle, Download, Camera, Save, Upload, Copy, FileJson, Calculator, ChevronRight, Disc, HeartPulse, Trash2, AlertTriangle
+  Brain, Target, CheckCircle, Download, Camera, Save, Upload, Copy, FileJson, Calculator, ChevronRight, Disc, HeartPulse, Trash2, AlertTriangle, History, ChevronUp, ChevronDown
 } from 'lucide-react';
 import { STRENGTH_PROTOCOLS, RUN_PROTOCOLS } from '../data/protocols';
-import { parseRestTime, getMuscleActivation, formatStopwatch, calculate1RM, calculatePlates, calculateHeartRateZones } from '../utils/helpers';
+import { parseRestTime, getMuscleActivation, formatStopwatch, calculate1RM, calculatePlates, calculateHeartRateZones, playBeep, initAudioContext } from '../utils/helpers';
 import { MuscleHeatmap } from './Visuals';
 import { downloadShareImage, downloadTCX } from '../utils/logic';
 
@@ -400,16 +400,114 @@ export const ExerciseCatalog = ({ onClose, onSelect }: {onClose: () => void, onS
   );
 };
 
-export const ExerciseModal = ({ exercise, exerciseId, category, onClose, onComplete, exerciseIndex, savedData }: any) => {
+export const FreeTimerModal = ({ onClose, onComplete }: any) => {
+  const [timer, setTimer] = useState(0);
+  const [isTimerRunning, setIsTimerRunning] = useState(false);
+  const [notes, setNotes] = useState("");
+
+  useEffect(() => {
+    let interval: any = null;
+    if (isTimerRunning) {
+      interval = setInterval(() => setTimer(t => t + 1), 1000);
+    } else if (!isTimerRunning && timer !== 0) {
+      clearInterval(interval);
+    }
+    return () => clearInterval(interval);
+  }, [isTimerRunning, timer]);
+
+  const handleComplete = () => {
+    onComplete('custom-session-' + Date.now(), false, {
+      name: "Séance Libre",
+      duration: timer,
+      notes,
+      date: new Date().toISOString()
+    });
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/90 backdrop-blur-md animate-in fade-in duration-300">
+      <div className="bg-white dark:bg-slate-800 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-300">
+        <div className="p-4 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-900">
+          <h3 className="font-black text-slate-800 dark:text-white flex items-center gap-2">
+            <Timer className="text-emerald-600" size={20}/> Séance Libre
+          </h3>
+          <button onClick={onClose} className="p-2 bg-white dark:bg-slate-800 rounded-full shadow-sm text-slate-400 hover:text-slate-600 dark:hover:text-white transition">
+            <X size={20} />
+          </button>
+        </div>
+        
+        <div className="p-6 flex-1 overflow-y-auto space-y-6">
+            <div className="text-center">
+                <div className="text-6xl font-black text-slate-800 dark:text-white font-mono tracking-tighter mb-4">
+                    {formatStopwatch(timer)}
+                </div>
+                <div className="flex justify-center gap-4">
+                    <button 
+                        onClick={() => setIsTimerRunning(!isTimerRunning)}
+                        className={`w-16 h-16 rounded-full flex items-center justify-center text-white shadow-lg transition-transform hover:scale-105 ${isTimerRunning ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                    >
+                        {isTimerRunning ? <Pause size={24}/> : <Play size={24} className="ml-1"/>}
+                    </button>
+                    <button 
+                        onClick={() => { setIsTimerRunning(false); setTimer(0); }}
+                        className="w-16 h-16 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 flex items-center justify-center hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
+                    >
+                        <RotateCcw size={24}/>
+                    </button>
+                </div>
+            </div>
+
+            <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Notes de séance</label>
+                <textarea 
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="Qu'avez-vous fait aujourd'hui ?"
+                    className="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 text-slate-800 dark:text-white text-sm focus:ring-2 focus:ring-emerald-500 outline-none min-h-[100px]"
+                />
+            </div>
+        </div>
+
+        <div className="p-4 border-t border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
+            <button 
+                onClick={handleComplete}
+                className="w-full py-4 bg-emerald-600 text-white font-black rounded-xl shadow-lg hover:bg-emerald-700 transition flex items-center justify-center gap-2"
+            >
+                <CheckCircle size={20}/> Terminer et Sauvegarder
+            </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export const ExerciseModal = ({ exercise, exerciseId, category, onClose, onComplete, exerciseIndex, savedData, exercisesLog }: any) => {
   const [imgError, setImgError] = useState(false);
   const [setsStatus, setSetsStatus] = useState<boolean[]>([]);
   const [timer, setTimer] = useState(0);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [activeSetIndex, setActiveSetIndex] = useState<number|null>(null);
   const [weights, setWeights] = useState<string[]>([]);
+  const [reps, setReps] = useState<string[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
   
   const isRun = category === 'run'; 
-  const audioRef = useRef<HTMLAudioElement>(null);
+
+  const pastPerformances = useMemo(() => {
+      if (!exercisesLog || !exercise) return [];
+      const history: any[] = [];
+      Object.keys(exercisesLog).forEach(key => {
+          const log = exercisesLog[key];
+          // Check if the log has the same exercise name
+          if (log && log.name === exercise.name && log.weights) {
+              history.push(log);
+          }
+      });
+      // Sort by date descending
+      history.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      return history.slice(0, 3); // Keep last 3
+  }, [exercisesLog, exercise]);
   
   useEffect(() => {
     if (exercise && !isRun) {
@@ -420,11 +518,23 @@ export const ExerciseModal = ({ exercise, exerciseId, category, onClose, onCompl
             const match = exercise.sets.match(/^(\d+)/);
             if (match) setsCount = parseInt(match[1]);
         }
-        setSetsStatus(new Array(setsCount).fill(false));
+        
+        let defaultRep = "10";
+        if (typeof exercise.reps === 'number') {
+            defaultRep = exercise.reps.toString();
+        } else if (typeof exercise.reps === 'string') {
+            const match = exercise.reps.match(/(\d+)/);
+            if (match) defaultRep = match[1];
+        }
+
         if (savedData && savedData.weights) {
+            setSetsStatus(new Array(savedData.weights.length).fill(true)); // If saved, assume done for simplicity or keep false? Let's keep false so they can check them off if re-opening, or true if we want them checked. Let's keep false.
             setWeights(savedData.weights);
+            setReps(savedData.reps || new Array(savedData.weights.length).fill(defaultRep));
         } else {
+            setSetsStatus(new Array(setsCount).fill(false));
             setWeights(new Array(setsCount).fill(''));
+            setReps(new Array(setsCount).fill(defaultRep));
         }
     }
   }, [exercise, isRun, savedData]);
@@ -438,9 +548,7 @@ export const ExerciseModal = ({ exercise, exerciseId, category, onClose, onCompl
     } else if (timer === 0 && isTimerRunning) {
         setIsTimerRunning(false);
         setActiveSetIndex(null);
-        if (audioRef.current) {
-            audioRef.current.play().catch(e => console.log("Audio play failed", e));
-        }
+        playBeep(600, 400, 'square');
         if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
     }
     return () => clearInterval(interval);
@@ -454,8 +562,46 @@ export const ExerciseModal = ({ exercise, exerciseId, category, onClose, onCompl
 
   const handleWeightChange = (index: number, val: string) => {
       const newWeights = [...weights];
+      const oldVal = newWeights[index];
       newWeights[index] = val;
+      
+      // Auto-fill subsequent empty weights if editing the first set
+      if (index === 0) {
+          for (let i = 1; i < newWeights.length; i++) {
+              if (newWeights[i] === '' || newWeights[i] === oldVal) {
+                  newWeights[i] = val;
+              }
+          }
+      }
+      
       setWeights(newWeights);
+  };
+
+  const handleRepsChange = (index: number, val: string) => {
+      const newReps = [...reps];
+      newReps[index] = val;
+      setReps(newReps);
+  };
+
+  const handleAddSet = () => {
+      setSetsStatus([...setsStatus, false]);
+      setWeights([...weights, weights.length > 0 ? weights[weights.length - 1] : '']);
+      setReps([...reps, reps.length > 0 ? reps[reps.length - 1] : '10']);
+  };
+
+  const handleRemoveSet = (index: number) => {
+      if (setsStatus.length <= 1) return;
+      const newSetsStatus = [...setsStatus];
+      newSetsStatus.splice(index, 1);
+      setSetsStatus(newSetsStatus);
+      
+      const newWeights = [...weights];
+      newWeights.splice(index, 1);
+      setWeights(newWeights);
+      
+      const newReps = [...reps];
+      newReps.splice(index, 1);
+      setReps(newReps);
   };
 
   const toggleSet = (index: number) => {
@@ -464,6 +610,7 @@ export const ExerciseModal = ({ exercise, exerciseId, category, onClose, onCompl
     newStatus[index] = isChecking;
     setSetsStatus(newStatus);
     if (isChecking) {
+        initAudioContext();
         if (index < setsStatus.length - 1) {
             const restSeconds = parseRestTime(exercise.rest);
             if (restSeconds > 0) {
@@ -486,7 +633,7 @@ export const ExerciseModal = ({ exercise, exerciseId, category, onClose, onCompl
           onComplete(exerciseId); 
       } else {
           const uniqueExerciseId = `${exerciseId}-ex-${exerciseIndex}`;
-          onComplete(uniqueExerciseId, true, { weights }); 
+          onComplete(uniqueExerciseId, true, { weights, reps, name: exercise.name, date: new Date().toISOString() }); 
       }
       onClose();
   };
@@ -499,6 +646,22 @@ export const ExerciseModal = ({ exercise, exerciseId, category, onClose, onCompl
 
   if (!exercise) return null;
 
+  // Generate weight options for the native select picker
+  const weightOptions = useMemo(() => {
+      const options = [];
+      for (let i = 0; i <= 300; i++) {
+          options.push(i.toString());
+          if (i < 100) {
+              options.push((i + 0.5).toString());
+          }
+      }
+      return options.sort((a, b) => parseFloat(a) - parseFloat(b));
+  }, []);
+
+  const repOptions = useMemo(() => {
+      return Array.from({length: 100}, (_, i) => (i + 1).toString());
+  }, []);
+
   const imageSrc = !isRun && (exercise.imageUrl && exercise.imageUrl !== "" && !imgError) 
     ? exercise.imageUrl 
     : `https://picsum.photos/seed/${encodeURIComponent(exercise.imageKeyword || 'gym')}/800/600`;
@@ -508,7 +671,6 @@ export const ExerciseModal = ({ exercise, exerciseId, category, onClose, onCompl
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-white dark:bg-slate-800 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 max-h-[90vh] flex flex-col relative">
-        <audio ref={audioRef} src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" preload="auto"></audio>
         {isRun ? (
             <div className="bg-slate-50 dark:bg-slate-900 p-6 border-b border-slate-100 dark:border-slate-700 relative">
                 <button onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-2 rounded-full transition hover:bg-slate-100 dark:hover:bg-slate-700"><X size={24}/></button>
@@ -548,14 +710,45 @@ export const ExerciseModal = ({ exercise, exerciseId, category, onClose, onCompl
                 <div className="space-y-3">
                     {setsStatus.map((isDone, idx) => (
                         <div key={idx} className={`flex items-center justify-between p-3 rounded-xl border transition-all ${isDone ? 'bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-800' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600'}`}>
-                            <div className="flex items-center gap-3"><span className={`text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full ${isDone ? 'bg-green-200 text-green-700' : 'bg-slate-100 dark:bg-slate-700 text-slate-400'}`}>{idx + 1}</span><span className={`text-sm font-medium ${isDone ? 'text-green-800 dark:text-green-400' : 'text-slate-600 dark:text-slate-300'}`}>{exercise.reps} reps</span></div>
+                            <div className="flex items-center gap-3">
+                                <span className={`text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full ${isDone ? 'bg-green-200 text-green-700' : 'bg-slate-100 dark:bg-slate-700 text-slate-400'}`}>{idx + 1}</span>
+                                <div className="flex items-center gap-1">
+                                    <select 
+                                        className={`bg-transparent text-sm font-medium outline-none appearance-none cursor-pointer ${isDone ? 'text-green-800 dark:text-green-400' : 'text-slate-600 dark:text-slate-300'}`}
+                                        value={reps[idx] || '10'}
+                                        onChange={(e) => handleRepsChange(idx, e.target.value)}
+                                        onClick={(e) => e.stopPropagation()}
+                                    >
+                                        {repOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                                    </select>
+                                    <span className={`text-sm font-medium ${isDone ? 'text-green-800 dark:text-green-400' : 'text-slate-600 dark:text-slate-300'}`}>reps</span>
+                                </div>
+                            </div>
                             <div className="flex items-center gap-2 mr-auto ml-4">
-                                <input type="number" placeholder="kg" className="w-16 py-1 px-2 text-center bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-sm font-bold text-slate-700 dark:text-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all" value={weights[idx] || ''} onChange={(e) => handleWeightChange(idx, e.target.value)} onClick={(e) => e.stopPropagation()} />
+                                <select 
+                                    className="w-16 py-1 px-2 text-center bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-sm font-bold text-slate-700 dark:text-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all appearance-none cursor-pointer"
+                                    value={weights[idx] || ''}
+                                    onChange={(e) => handleWeightChange(idx, e.target.value)}
+                                    onClick={(e) => e.stopPropagation()}
+                                >
+                                    <option value="">-</option>
+                                    {weightOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                                </select>
                                 <span className="text-[10px] text-slate-400 font-bold">KG</span>
                             </div>
-                            <button onClick={() => toggleSet(idx)} className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${isDone ? 'bg-green-500 text-white shadow-sm' : 'bg-slate-100 dark:bg-slate-700 text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'}`}>{isDone ? <Check size={18}/> : <Square size={18} className="fill-white dark:fill-slate-800"/>}</button>
+                            <div className="flex items-center gap-2">
+                                {setsStatus.length > 1 && (
+                                    <button onClick={() => handleRemoveSet(idx)} className="text-slate-300 hover:text-rose-500 transition p-1">
+                                        <Trash2 size={16}/>
+                                    </button>
+                                )}
+                                <button onClick={() => toggleSet(idx)} className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${isDone ? 'bg-green-500 text-white shadow-sm' : 'bg-slate-100 dark:bg-slate-700 text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'}`}>{isDone ? <Check size={18}/> : <Square size={18} className="fill-white dark:fill-slate-800"/>}</button>
+                            </div>
                         </div>
                     ))}
+                    <button onClick={handleAddSet} className="w-full py-2 border-2 border-dashed border-slate-200 dark:border-slate-600 rounded-xl text-slate-400 hover:text-indigo-500 hover:border-indigo-200 dark:hover:border-indigo-800 transition flex items-center justify-center gap-2 text-sm font-bold">
+                        <Plus size={16}/> Ajouter une série
+                    </button>
                 </div>
             </div>
             )}
@@ -571,6 +764,30 @@ export const ExerciseModal = ({ exercise, exerciseId, category, onClose, onCompl
                  <div className="flex items-center gap-2 mb-2"><div className="bg-emerald-100 p-1.5 rounded-lg text-emerald-600"><Target size={18}/></div><h4 className="font-bold text-slate-800 dark:text-white">Objectif Physiologique</h4></div>
                 <p className="text-xs font-medium text-slate-500 dark:text-slate-400">{exercise.note}</p>
             </div>
+
+            {pastPerformances.length > 0 && (
+                <div className="mt-4">
+                    <button onClick={() => setShowHistory(!showHistory)} className="w-full flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-700/50 rounded-xl border border-slate-100 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 transition">
+                        <div className="flex items-center gap-2 text-slate-700 dark:text-slate-200 font-bold text-sm"><History size={16} className="text-indigo-500"/> Historique des performances</div>
+                        {showHistory ? <ChevronUp size={16} className="text-slate-400"/> : <ChevronDown size={16} className="text-slate-400"/>}
+                    </button>
+                    {showHistory && (
+                        <div className="mt-2 space-y-2 animate-in slide-in-from-top-2">
+                            {pastPerformances.map((perf: any, idx: number) => (
+                                <div key={idx} className="p-3 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-lg flex justify-between items-center shadow-sm">
+                                    <div className="text-xs font-bold text-slate-500">{new Date(perf.date).toLocaleDateString()}</div>
+                                    <div className="flex gap-2">
+                                        {perf.weights.map((w: string, i: number) => (
+                                            <span key={i} className="px-2 py-1 bg-slate-100 dark:bg-slate-700 rounded text-xs font-bold text-slate-700 dark:text-slate-300">{w || '-'} kg</span>
+                                        ))}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
+
             {(isRun || allSetsDone) && (
                 <button onClick={handleComplete} className="w-full py-4 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 transition shadow-lg shadow-green-200 mt-2 animate-in slide-in-from-bottom-2 fade-in">{isRun ? "Terminer la séance" : "Valider l'exercice"}</button>
             )}
@@ -581,6 +798,29 @@ export const ExerciseModal = ({ exercise, exerciseId, category, onClose, onCompl
 };
 
 export const SessionHistoryDetail = ({ session, exercisesLog, onClose }: any) => {
+    let totalTonnage = 0;
+    if (session.exercises) {
+        session.exercises.forEach((ex: any, idx: number) => {
+            const log = exercisesLog[`${session.id}-ex-${idx}`];
+            if (log && log.weights) {
+                log.weights.forEach((w: string, i: number) => {
+                    const weight = parseFloat(w) || 0;
+                    let reps = 0;
+                    if (log.reps && log.reps[i]) {
+                        reps = parseFloat(log.reps[i]) || 0;
+                    } else {
+                        if (typeof ex.reps === 'number') reps = ex.reps;
+                        else if (typeof ex.reps === 'string') {
+                            const match = ex.reps.match(/(\d+)/);
+                            if (match) reps = parseInt(match[1]);
+                        }
+                    }
+                    totalTonnage += weight * reps;
+                });
+            }
+        });
+    }
+
     return (
         <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-slate-900/95 backdrop-blur-md animate-in zoom-in-95 duration-200">
             <div className="bg-white dark:bg-slate-800 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
@@ -603,7 +843,15 @@ export const SessionHistoryDetail = ({ session, exercisesLog, onClose }: any) =>
                     </div>
 
                     <div className="space-y-3">
-                        <h4 className="font-bold text-slate-700 dark:text-slate-200 text-sm flex items-center gap-2"><Dumbbell size={16}/> Performance</h4>
+                        <div className="flex justify-between items-end">
+                            <h4 className="font-bold text-slate-700 dark:text-slate-200 text-sm flex items-center gap-2"><Dumbbell size={16}/> Performance</h4>
+                            {totalTonnage > 0 && (
+                                <div className="text-right">
+                                    <div className="text-[10px] font-bold text-slate-400 uppercase">Tonnage Total</div>
+                                    <div className="text-lg font-black text-indigo-600 dark:text-indigo-400">{totalTonnage.toLocaleString()} kg</div>
+                                </div>
+                            )}
+                        </div>
                         {session.exercises && session.exercises.map((ex: any, idx: number) => {
                             const log = exercisesLog[`${session.id}-ex-${idx}`];
                             const weights = log?.weights?.filter((w: any) => w) || [];

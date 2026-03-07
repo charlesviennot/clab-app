@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Zap, Dumbbell, Activity, Flame, Clock, X, Smartphone, Share, Pause, Play, StopCircle, Navigation, MapPin, Ruler, Save, Download, Upload, Copy, Check, Briefcase, Armchair, Hammer, Trash2, FileJson, TrendingDown, TrendingUp, Volume2, VolumeX, Calculator, Disc, Calendar, ArrowRight, Sun, Moon, Coffee, CheckCircle, Trophy, HeartPulse, Cloud, CloudRain, CloudSnow, CloudLightning, Wind } from 'lucide-react';
-import { formatStopwatch, getMuscleActivation, calculateHaversineDistance, calculateDailyCalories, playBeep, getXpLevel, getRandomMotivation, vibrate } from '../utils/helpers';
+import { formatStopwatch, getMuscleActivation, calculateHaversineDistance, calculateDailyCalories, playBeep, initAudioContext, getXpLevel, getRandomMotivation, vibrate, checkAndRefreshStravaToken } from '../utils/helpers';
 import { DataManagementModal, OneRMModal, PlateCalculatorModal, HeartRateModal } from './Modals';
 
 export const RpeBadge = ({ level }: { level: number }) => {
@@ -287,6 +287,7 @@ export const LiveSessionTimer = ({ onFinish, timerRef, hapticEnabled }: { onFini
     }, [isActive, seconds, timerRef]);
 
     const toggleTimer = () => {
+        initAudioContext();
         if (!isActive && audioEnabled) {
             playBeep(800, 100); // Start beep
         }
@@ -440,6 +441,118 @@ export const BanisterChart = ({ duration }: {duration: number}) => { if (!durati
 export const TrimpChart = ({ plannedData, realizedData }: {plannedData: number[], realizedData: number[]}) => { const [selectedPoint, setSelectedPoint] = useState<number | null>(null); if (!plannedData || plannedData.length === 0) return <div className="text-xs text-slate-400 italic text-center p-4">En attente de données...</div>; const trimpData = plannedData.map((val, i) => { const intensityFactor = (i % 4 === 0) ? 0.7 : (i % 4 === 1) ? 0.9 : 0.8; return Math.round(val * intensityFactor); }); const realizedTrimpData = realizedData.map((val, i) => { const intensityFactor = (i % 4 === 0) ? 0.7 : (i % 4 === 1) ? 0.9 : 0.8; return Math.round(val * intensityFactor); }); const maxTrimp = Math.max(...trimpData, 1); return ( <div className="space-y-4"> <div className="flex justify-end gap-3 text-[10px] font-bold uppercase text-slate-400 mb-2"><div className="flex items-center gap-1"><div className="w-2 h-2 bg-slate-200 border border-slate-300 rounded-sm"></div> Cible</div><div className="flex items-center gap-1"><div className="w-2 h-2 bg-purple-500 rounded-sm"></div> Fait</div></div> <div className="flex items-end justify-between h-32 gap-1 mt-4 px-2 relative"> <div className="absolute inset-0 flex flex-col justify-between px-2 pointer-events-none opacity-10"><div className="w-full h-px bg-purple-900 dark:bg-purple-300 border-dashed border-t"></div><div className="w-full h-px bg-purple-900 dark:bg-purple-300 border-dashed border-t"></div><div className="w-full h-px bg-purple-900 dark:bg-purple-300 border-dashed border-t"></div></div> {trimpData.map((trimp, i) => { const realizedTrimp = realizedTrimpData[i] || 0; return ( <div key={i} className="flex-1 flex flex-col items-center gap-1 group cursor-pointer relative h-full justify-end z-10" onClick={() => setSelectedPoint(i === selectedPoint ? null : i)}> <div className="w-full relative flex items-end justify-center h-full rounded-t-sm"> <div className="w-full absolute bottom-0 bg-slate-100 dark:bg-slate-700 border-2 border-dashed border-slate-300 dark:border-slate-600 opacity-60 rounded-t-sm z-0" style={{ height: `${(trimp / maxTrimp) * 80 + 10}%` }}></div> <div className={`w-full absolute bottom-0 transition-all duration-1000 z-10 rounded-t-sm ${selectedPoint === i ? 'bg-purple-600' : 'bg-gradient-to-t from-purple-300 to-purple-500'}`} style={{ height: `${(realizedTrimp / maxTrimp) * 80 + 10}%` }}></div> </div> <span className={`text-[9px] font-mono z-20 ${selectedPoint === i ? 'text-purple-600 font-bold scale-125' : 'text-slate-400'}`}>S{i + 1}</span> </div> )})} </div> {selectedPoint !== null && ( <div className="bg-purple-50 dark:bg-purple-900/30 p-3 rounded-xl border border-purple-100 dark:border-purple-800 text-xs text-purple-800 dark:text-purple-200 animate-in slide-in-from-top-2 flex items-start gap-2 shadow-sm"> <Flame size={16} className="shrink-0 mt-0.5 text-purple-600"/> <div> <span className="font-bold block mb-1">Charge Semaine {selectedPoint + 1}</span> <div className="flex gap-4 mb-1 text-[10px]"><span className="text-slate-500 dark:text-slate-400">Prévu: {trimpData[selectedPoint]}</span><span className="font-black bg-white dark:bg-slate-800 px-1.5 py-0.5 rounded border border-purple-100 dark:border-purple-800">Fait: {realizedTrimpData[selectedPoint] || 0}</span></div> <div className="text-slate-600 dark:text-slate-300 italic">{realizedTrimpData[selectedPoint] > trimpData[selectedPoint] ? "Attention, charge plus élevée que prévu." : "Charge maîtrisée."}</div> </div> </div> )} </div> ); };
 export const InstallGuide = ({ onClose }: {onClose: () => void}) => ( <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-900/90 backdrop-blur-md animate-in fade-in duration-300"> <div className="bg-white w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden text-center p-8 relative animate-in zoom-in-95 duration-300"> <button onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition"><X size={24}/></button> <div className="w-16 h-16 bg-indigo-100 rounded-2xl flex items-center justify-center mx-auto mb-6 text-indigo-600"><Smartphone size={32} /></div> <h3 className="text-2xl font-black text-slate-800 mb-2">Installer l'App 📱</h3> <p className="text-sm text-slate-500 mb-6 leading-relaxed">Pour une meilleure expérience, ajoutez C-Lab Performance à votre écran d'accueil. C'est gratuit et sans téléchargement !</p> <div className="space-y-4 text-left bg-slate-50 p-4 rounded-xl border border-slate-100"> <div className="flex items-center gap-3"><span className="w-6 h-6 flex items-center justify-center bg-indigo-600 text-white rounded-full text-xs font-bold">1</span><span className="text-sm text-slate-700">Appuyez sur le bouton <strong>Partager</strong> <Share size={14} className="inline ml-1"/> dans Safari.</span></div> <div className="flex items-center gap-3"><span className="w-6 h-6 flex items-center justify-center bg-indigo-600 text-white rounded-full text-xs font-bold">2</span><span className="text-sm text-slate-700">Faites défiler vers le bas.</span></div> <div className="flex items-center gap-3"><span className="w-6 h-6 flex items-center justify-center bg-indigo-600 text-white rounded-full text-xs font-bold">3</span><span className="text-sm text-slate-700">Sélectionnez <strong>"Sur l'écran d'accueil"</strong>.</span></div> </div> <button onClick={onClose} className="mt-6 w-full py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition">C'est compris !</button> </div> </div> );
 
+export const RacePredictor = ({ userData, stats }: { userData: any, stats: any }) => {
+    if (!userData.goalTime || !['5k', '10k', '21k', '42k'].includes(userData.targetDistance)) return null;
+
+    const currentEst = userData.currentEstimatedTime || (userData.goalTime * 1.15); // Default start 15% slower
+    const goal = userData.goalTime;
+    const totalWeeks = userData.durationWeeks || 12;
+    
+    // Calculate Progress & Compliance
+    const realized = stats.realized || [];
+    const planned = stats.planned || [];
+    const currentWeek = realized.length; // Weeks with data
+    
+    if (currentWeek === 0) return null;
+
+    const totalPlannedSoFar = planned.slice(0, currentWeek).reduce((a:number, b:number) => a + b, 0) || 1;
+    const totalRealizedSoFar = realized.reduce((a:number, b:number) => a + b, 0) || 0;
+    const compliance = Math.min(1.2, Math.max(0.5, totalRealizedSoFar / totalPlannedSoFar)); // Cap between 50% and 120%
+
+    // Banister Form Calculation (Simplified for current week)
+    const ramp = currentWeek / totalWeeks;
+    const fitness = 20 + (ramp * 60);
+    const fatigue = 10 + (ramp * 70) + (Math.sin(currentWeek) * 10);
+    const form = fitness - fatigue + 30; // ~30 is neutral/fresh, <10 is tired
+    
+    // Prediction Logic
+    // 1. Linear progress towards goal based on weeks completed
+    const maxImprovement = currentEst - goal;
+    const theoreticalGain = maxImprovement * (currentWeek / totalWeeks);
+    
+    // 2. Adjust by Compliance (if you miss sessions, you gain less)
+    const actualGain = theoreticalGain * compliance;
+    
+    // 3. Adjust by Form (Fatigue masks fitness)
+    // If Form is low (tired), add time. If Form is high (tapered), subtract time.
+    // Normalized: 30 is baseline. 
+    const formImpactMinutes = (30 - form) * 0.05; // +/- a few seconds/minutes
+    
+    let predictedTime = currentEst - actualGain + formImpactMinutes;
+    
+    // Safety caps
+    if (predictedTime < goal * 0.95) predictedTime = goal * 0.95; // Can't be magically too fast
+    if (predictedTime > currentEst * 1.1) predictedTime = currentEst * 1.1;
+
+    const formatTime = (min: number) => {
+        const m = Math.floor(min);
+        const s = Math.round((min - m) * 60);
+        return `${m}'${s < 10 ? '0' : ''}${s}"`;
+    };
+
+    const isOnTrack = predictedTime <= (goal + (currentEst - goal) * (1 - currentWeek/totalWeeks));
+
+    return (
+        <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm relative overflow-hidden mb-6">
+            <div className="absolute top-0 right-0 p-3 opacity-10">
+                <Trophy size={48} className="text-indigo-500"/>
+            </div>
+            
+            <div className="flex justify-between items-end mb-4 relative z-10">
+                <div>
+                    <h4 className="font-bold text-slate-700 dark:text-slate-200 flex items-center gap-2">
+                        <Zap size={18} className="text-amber-500"/> Prédicteur de Course
+                    </h4>
+                    <p className="text-xs text-slate-400 mt-1">Basé sur votre fatigue (Banister) et assiduité.</p>
+                </div>
+                <div className={`px-2 py-1 rounded text-[10px] font-bold border ${isOnTrack ? 'bg-green-50 text-green-600 border-green-100' : 'bg-amber-50 text-amber-600 border-amber-100'}`}>
+                    {isOnTrack ? "SUR LA VOIE" : "RETARD"}
+                </div>
+            </div>
+
+            <div className="flex items-end gap-4 mb-4 relative z-10">
+                <div>
+                    <div className="text-[10px] font-bold text-slate-400 uppercase">Potentiel Actuel</div>
+                    <div className="text-3xl font-black text-indigo-600 dark:text-indigo-400 tracking-tight">
+                        {formatTime(predictedTime)}
+                    </div>
+                </div>
+                <div className="mb-1">
+                    <div className="text-[10px] font-bold text-slate-400 uppercase">Objectif</div>
+                    <div className="text-lg font-bold text-slate-600 dark:text-slate-300">
+                        {formatTime(goal)}
+                    </div>
+                </div>
+            </div>
+
+            {/* Visual Bar */}
+            <div className="relative h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden mb-2">
+                {/* Progress bar inverse: closer to goal (left) is better? No, let's do 0% = Start, 100% = Goal */}
+                <div 
+                    className="absolute top-0 left-0 h-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-all duration-1000"
+                    style={{ width: `${Math.min(100, Math.max(0, ((currentEst - predictedTime) / (currentEst - goal)) * 100))}%` }}
+                ></div>
+            </div>
+            
+            <div className="flex justify-between text-[10px] font-medium text-slate-400">
+                <span>Départ: {formatTime(currentEst)}</span>
+                <span>Cible: {formatTime(goal)}</span>
+            </div>
+
+            <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700 flex gap-4 text-xs">
+                 <div className="flex items-center gap-1">
+                    <Activity size={12} className={form > 30 ? "text-green-500" : "text-amber-500"}/>
+                    <span className="text-slate-600 dark:text-slate-300">Forme: <strong>{Math.round(form)}</strong></span>
+                 </div>
+                 <div className="flex items-center gap-1">
+                    <CheckCircle size={12} className={compliance >= 0.8 ? "text-green-500" : "text-rose-500"}/>
+                    <span className="text-slate-600 dark:text-slate-300">Assiduité: <strong>{Math.round(compliance * 100)}%</strong></span>
+                 </div>
+            </div>
+        </div>
+    );
+};
+
 export const ProfileView = ({ userData, setUserData, stats, darkMode, setDarkMode, setShowInstallGuide, stravaData, setStravaData }: any) => {
     const [showDataModal, setShowDataModal] = useState(false);
     const [showOneRMModal, setShowOneRMModal] = useState(false);
@@ -467,7 +580,7 @@ export const ProfileView = ({ userData, setUserData, stats, darkMode, setDarkMod
 
             const handleMessage = async (event: MessageEvent) => {
                 if (event.data?.type === 'STRAVA_AUTH_SUCCESS') {
-                    const { accessToken, athlete, expiresAt } = event.data.payload;
+                    const { accessToken, refreshToken, athlete, expiresAt } = event.data.payload;
                     
                     // Fetch activities immediately
                     let activities = [];
@@ -490,6 +603,7 @@ export const ProfileView = ({ userData, setUserData, stats, darkMode, setDarkMod
 
                     setStravaData({
                         accessToken,
+                        refreshToken,
                         athlete,
                         expiresAt,
                         lastSync: new Date().toISOString(),
@@ -519,9 +633,10 @@ export const ProfileView = ({ userData, setUserData, stats, darkMode, setDarkMod
         if (!stravaData?.accessToken) return;
         
         try {
+            const validStravaData = await checkAndRefreshStravaToken(stravaData, setStravaData);
             const response = await fetch('/api/strava/activities', {
                 headers: {
-                    'Authorization': `Bearer ${stravaData.accessToken}`
+                    'Authorization': `Bearer ${validStravaData.accessToken}`
                 }
             });
             
@@ -612,6 +727,9 @@ export const ProfileView = ({ userData, setUserData, stats, darkMode, setDarkMod
                     {xp.next && <div className="text-right text-[9px] text-indigo-300 mt-1">Prochain rang : {xp.next.name}</div>}
                 </div>
              </div>
+
+             {/* RACE PREDICTOR */}
+             <RacePredictor userData={userData} stats={stats} />
 
              {/* HEADER EDITABLE */}
              <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-sm border border-slate-100 dark:border-slate-700 relative overflow-hidden">
@@ -807,11 +925,12 @@ export const ProfileView = ({ userData, setUserData, stats, darkMode, setDarkMod
                                 if (!confirmExport) return;
 
                                 try {
+                                    const validStravaData = await checkAndRefreshStravaToken(stravaData, setStravaData);
                                     const response = await fetch('/api/strava/upload', {
                                         method: 'POST',
                                         headers: {
                                             'Content-Type': 'application/json',
-                                            'Authorization': `Bearer ${stravaData.accessToken}`
+                                            'Authorization': `Bearer ${validStravaData.accessToken}`
                                         },
                                         body: JSON.stringify({
                                             name: lastSession.name || "Séance C-Lab Performance",
