@@ -214,14 +214,15 @@ const parseWorkoutSteps = (exercises: any[]) => {
                 const offPart = parts[1];
                 
                 const parseDuration = (str: string) => {
-                    if (str.includes('min')) return (parseFloat(str) || 1) * 60;
-                    if (str.includes('s') || str.includes('sec')) return parseFloat(str) || 30;
-                    return 60;
+                    let val = 60;
+                    if (str.includes('min')) val = (parseFloat(str) || 1) * 60;
+                    else if (str.includes('s') || str.includes('sec')) val = parseFloat(str) || 30;
+                    return Math.round(val);
                 };
                 
                 steps.push({
                     type: 'IntervalsT',
-                    Repeat: repeats,
+                    Repeat: Math.round(repeats),
                     OnDuration: parseDuration(onPart),
                     OffDuration: parseDuration(offPart),
                     OnPower: 1.05,
@@ -231,7 +232,7 @@ const parseWorkoutSteps = (exercises: any[]) => {
             } else {
                 steps.push({
                     type: 'SteadyState',
-                    Duration: 60 * repeats,
+                    Duration: Math.round(60 * repeats),
                     Power: 0.85,
                     pace: 1
                 });
@@ -242,6 +243,7 @@ const parseWorkoutSteps = (exercises: any[]) => {
                 if (ex.sets.includes('min')) duration = (parseFloat(ex.sets) || 10) * 60;
                 else if (ex.sets.includes('km')) duration = (parseFloat(ex.sets) || 1) * 360;
             }
+            duration = Math.round(duration);
             
             let power = 0.75;
             if (ex.reps && typeof ex.reps === 'string') {
@@ -267,6 +269,19 @@ const parseWorkoutSteps = (exercises: any[]) => {
     return steps;
 };
 
+const escapeXml = (unsafe: string) => {
+    return (unsafe || '').replace(/[<>&'"]/g, (c) => {
+        switch (c) {
+            case '<': return '&lt;';
+            case '>': return '&gt;';
+            case '&': return '&amp;';
+            case '\'': return '&apos;';
+            case '"': return '&quot;';
+            default: return c;
+        }
+    });
+};
+
 export const downloadWorkoutZWO = (session: any) => {
     const steps = parseWorkoutSteps(session.exercises || []);
     let workoutXml = '';
@@ -283,9 +298,10 @@ export const downloadWorkoutZWO = (session: any) => {
     const zwo = `<?xml version="1.0" encoding="UTF-8"?>
 <workout_file>
     <author>C-Lab Performance</author>
-    <name>${session.name || session.type}</name>
-    <description>${session.description || 'Séance de course à pied'}</description>
+    <name>${escapeXml(session.name || session.type)}</name>
+    <description>${escapeXml(session.description || 'Séance de course à pied')}</description>
     <sportType>run</sportType>
+    <tags/>
     <workout>
 ${workoutXml}    </workout>
 </workout_file>`;
@@ -328,7 +344,7 @@ export const downloadWorkoutTCX = (session: any) => {
             stepsXml += `
         <Step xsi:type="Step_t">
           <StepId>${stepId++}</StepId>
-          <Name>${step.type}</Name>
+          <Name>${escapeXml(step.type)}</Name>
           <Duration xsi:type="Time_t">
             <Seconds>${step.Duration}</Seconds>
           </Duration>
@@ -345,7 +361,7 @@ export const downloadWorkoutTCX = (session: any) => {
   xsi:schemaLocation="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2 http://www.garmin.com/xmlschemas/TrainingCenterDatabasev2.xsd">
   <Workouts>
     <Workout Sport="Running">
-      <Name>${(session.name || session.type).substring(0, 15)}</Name>
+      <Name>${escapeXml((session.name || session.type).substring(0, 15))}</Name>
 ${stepsXml}
     </Workout>
   </Workouts>
