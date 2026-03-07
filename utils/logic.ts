@@ -158,25 +158,9 @@ export const getRecommendedSchedule = (sessions: any[], isHyrox = false, targetD
 };
 
 const shareOrDownloadFile = async (content: string, fileName: string, mimeType: string) => {
-    try {
-        const file = new File([content], fileName, { type: mimeType });
-        if (typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] })) {
-            await navigator.share({
-                files: [file],
-                title: fileName,
-                text: 'Importer la séance'
-            });
-            return;
-        }
-    } catch (error: any) {
-        console.log('Share failed or cancelled', error);
-        if (error.name === 'AbortError') {
-            return; // User cancelled the share, don't fallback to download
-        }
-    }
-
-    // Fallback to traditional download
-    const blob = new Blob([content], { type: mimeType });
+    // Force traditional download with application/octet-stream to prevent Safari/iOS
+    // from appending .xml or .txt to custom extensions like .zwo or .tcx
+    const blob = new Blob([content], { type: 'application/octet-stream' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
