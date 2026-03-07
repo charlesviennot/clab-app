@@ -157,6 +157,36 @@ export const getRecommendedSchedule = (sessions: any[], isHyrox = false, targetD
     }));
 };
 
+const shareOrDownloadFile = async (content: string, fileName: string, mimeType: string) => {
+    try {
+        const file = new File([content], fileName, { type: mimeType });
+        if (typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] })) {
+            await navigator.share({
+                files: [file],
+                title: fileName,
+                text: 'Importer la séance'
+            });
+            return;
+        }
+    } catch (error: any) {
+        console.log('Share failed or cancelled', error);
+        if (error.name === 'AbortError') {
+            return; // User cancelled the share, don't fallback to download
+        }
+    }
+
+    // Fallback to traditional download
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+};
+
 export const downloadTCX = (session: any, durationSeconds: number, date: Date, exercisesLog: any) => {
     const startTime = new Date(date).toISOString();
     const sport = session.category === 'run' ? 'Running' : 'Other';
@@ -179,15 +209,7 @@ export const downloadTCX = (session: any, durationSeconds: number, date: Date, e
   </Activities>
 </TrainingCenterDatabase>`;
     
-    const blob = new Blob([tcx], { type: 'application/vnd.garmin.tcx+xml' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `clab-session-${session.id}.tcx`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    shareOrDownloadFile(tcx, `clab-session-${session.id}.tcx`, 'application/vnd.garmin.tcx+xml');
 };
 
 const parseWorkoutSteps = (exercises: any[]) => {
@@ -284,15 +306,7 @@ export const downloadWorkoutZWO = (session: any) => {
 ${workoutXml}    </workout>
 </workout_file>`;
 
-    const blob = new Blob([zwo], { type: 'application/xml' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `clab-workout-${session.id}.zwo`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    shareOrDownloadFile(zwo, `clab-workout-${session.id}.zwo`, 'application/xml');
 };
 
 export const downloadWorkoutTCX = (session: any) => {
@@ -353,15 +367,7 @@ ${stepsXml}
   </Workouts>
 </TrainingCenterDatabase>`;
 
-    const blob = new Blob([tcx], { type: 'application/vnd.garmin.tcx+xml' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `clab-workout-${session.id}.tcx`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    shareOrDownloadFile(tcx, `clab-workout-${session.id}.tcx`, 'application/vnd.garmin.tcx+xml');
 };
 
 import { getMuscleActivation } from './helpers';
