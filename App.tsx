@@ -505,7 +505,7 @@ export default function App() {
         </div>
       )}
 
-      <main className="max-w-3xl mx-auto px-4 mt-6 flex-1 w-full relative z-20 pb-20">
+      <main className="max-w-3xl mx-auto px-4 mt-6 flex-1 w-full relative z-20 pb-28 sm:pb-12">
         
         {step === 'result' && (
             <a 
@@ -864,7 +864,7 @@ export default function App() {
             </button>
           </div>
         ) : activeTab === 'plan' ? (
-          <div key="plan" className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div key="plan" className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
            
             {activeTab === 'plan' && step === 'result' && (
                 <>
@@ -1263,15 +1263,15 @@ export default function App() {
             })()}
           </div>
         ) : activeTab === 'nutrition' ? (
-             <div key="nutrition" className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+             <div key="nutrition" className="animate-in fade-in slide-in-from-bottom-2 duration-300">
                  <NutritionView userData={userData} setUserData={setUserData} nutritionLog={nutritionLog} setNutritionLog={setNutritionLog} showFoodSearch={showFoodSearch} setShowFoodSearch={setShowFoodSearch} setShowDataModal={setShowDataModal} />
              </div>
         ) : activeTab === 'profile' ? (
-             <div key="profile" className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+             <div key="profile" className="animate-in fade-in slide-in-from-bottom-2 duration-300">
                  <ProfileView userData={userData} setUserData={setUserData} stats={stats} darkMode={darkMode} setDarkMode={setDarkMode} setShowInstallGuide={setShowInstallGuide} stravaData={stravaData} setStravaData={setStravaData} />
              </div>
         ) : (
-          <div key="stats" className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div key="stats" className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
             <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 p-6">
               <h3 className="font-bold text-slate-800 dark:text-white flex items-center gap-2 mb-6"><BarChart3 className="text-indigo-600"/> Votre Progression</h3>
               <div className="grid grid-cols-3 gap-4 mb-8">
