@@ -1032,7 +1032,7 @@ export default function App() {
                             </div>
 
                             {/* Days Row */}
-                            <div className="flex justify-between items-center">
+                            <div className="grid grid-cols-7 gap-1 sm:gap-2">
                                 {currentWeek.schedule.map((day: any, i: number) => {
                                     const isSelected = selectedDayIndex === i;
                                     const hasActivity = day.sessionIds.length > 0;
@@ -1055,10 +1055,10 @@ export default function App() {
                                         <button 
                                             key={i}
                                             onClick={() => setSelectedDayIndex(i)}
-                                            className={`flex flex-col items-center gap-1 p-2 rounded-xl min-w-[40px] transition-all ${isSelected ? 'bg-indigo-600 text-white shadow-md scale-105' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
+                                            className={`flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-xl transition-all ${isSelected ? 'bg-indigo-600 text-white shadow-md scale-105' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
                                         >
-                                            <span className="text-[10px] font-bold uppercase">{dayNamesShort[i]}</span>
-                                            <span className={`text-sm font-black ${isSelected ? 'text-white' : 'text-slate-800 dark:text-white'}`}>{day.day}</span>
+                                            <span className="text-[9px] sm:text-[10px] font-bold uppercase">{dayNamesShort[i]}</span>
+                                            <span className={`text-xs sm:text-sm font-black ${isSelected ? 'text-white' : 'text-slate-800 dark:text-white'}`}>{day.day}</span>
                                             <div className={`w-1.5 h-1.5 rounded-full ${dotColor}`}></div>
                                         </button>
                                     );
@@ -1350,7 +1350,7 @@ export default function App() {
       </main>
 
       {/* Mobile Bottom Navigation */}
-      {step === 'plan' && (
+      {step === 'result' && (
         <div className="sm:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 z-50 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] dark:shadow-[0_-4px_20px_rgba(0,0,0,0.2)]" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
             <div className="flex justify-around items-center h-16 px-2">
                 <button 
