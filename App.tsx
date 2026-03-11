@@ -512,7 +512,7 @@ export default function App() {
               href={DONATION_URL} 
               target="_blank" 
               rel="noopener noreferrer"
-              className="fixed bottom-6 right-6 z-[60] bg-[#FFDD00] text-black p-4 rounded-full shadow-2xl hover:scale-110 transition-transform animate-bounce group flex items-center justify-center border-4 border-white/50"
+              className="fixed bottom-24 sm:bottom-6 right-6 z-[60] bg-[#FFDD00] text-black p-4 rounded-full shadow-2xl hover:scale-110 transition-transform animate-bounce group flex items-center justify-center border-4 border-white/50"
               title="Soutenir le projet"
             >
               <Coffee size={24} className="group-hover:rotate-12 transition-transform"/>
@@ -864,7 +864,7 @@ export default function App() {
             </button>
           </div>
         ) : activeTab === 'plan' ? (
-          <div key="plan" className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <div key="plan" className="space-y-4 animate-tab-enter">
            
             {activeTab === 'plan' && step === 'result' && (
                 <>
@@ -1263,15 +1263,15 @@ export default function App() {
             })()}
           </div>
         ) : activeTab === 'nutrition' ? (
-             <div key="nutrition" className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+             <div key="nutrition" className="animate-tab-enter">
                  <NutritionView userData={userData} setUserData={setUserData} nutritionLog={nutritionLog} setNutritionLog={setNutritionLog} showFoodSearch={showFoodSearch} setShowFoodSearch={setShowFoodSearch} setShowDataModal={setShowDataModal} />
              </div>
         ) : activeTab === 'profile' ? (
-             <div key="profile" className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+             <div key="profile" className="animate-tab-enter">
                  <ProfileView userData={userData} setUserData={setUserData} stats={stats} darkMode={darkMode} setDarkMode={setDarkMode} setShowInstallGuide={setShowInstallGuide} stravaData={stravaData} setStravaData={setStravaData} />
              </div>
         ) : (
-          <div key="stats" className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <div key="stats" className="space-y-6 animate-tab-enter">
             <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 p-6">
               <h3 className="font-bold text-slate-800 dark:text-white flex items-center gap-2 mb-6"><BarChart3 className="text-indigo-600"/> Votre Progression</h3>
               <div className="grid grid-cols-3 gap-4 mb-8">
