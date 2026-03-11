@@ -864,7 +864,7 @@ export default function App() {
             </button>
           </div>
         ) : activeTab === 'plan' ? (
-          <div className="space-y-4 animate-in slide-in-from-right-4">
+          <div key="plan" className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
            
             {activeTab === 'plan' && step === 'result' && (
                 <>
@@ -1057,8 +1057,7 @@ export default function App() {
                                             onClick={() => setSelectedDayIndex(i)}
                                             className={`flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-xl transition-all ${isSelected ? 'bg-indigo-600 text-white shadow-md scale-105' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
                                         >
-                                            <span className="text-[9px] sm:text-[10px] font-bold uppercase">{dayNamesShort[i]}</span>
-                                            <span className={`text-xs sm:text-sm font-black ${isSelected ? 'text-white' : 'text-slate-800 dark:text-white'}`}>{day.day}</span>
+                                            <span className={`text-xs sm:text-sm font-black uppercase ${isSelected ? 'text-white' : 'text-slate-800 dark:text-white'}`}>{dayNamesShort[i]}</span>
                                             <div className={`w-1.5 h-1.5 rounded-full ${dotColor}`}></div>
                                         </button>
                                     );
@@ -1264,11 +1263,15 @@ export default function App() {
             })()}
           </div>
         ) : activeTab === 'nutrition' ? (
-             <NutritionView userData={userData} setUserData={setUserData} nutritionLog={nutritionLog} setNutritionLog={setNutritionLog} showFoodSearch={showFoodSearch} setShowFoodSearch={setShowFoodSearch} setShowDataModal={setShowDataModal} />
+             <div key="nutrition" className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                 <NutritionView userData={userData} setUserData={setUserData} nutritionLog={nutritionLog} setNutritionLog={setNutritionLog} showFoodSearch={showFoodSearch} setShowFoodSearch={setShowFoodSearch} setShowDataModal={setShowDataModal} />
+             </div>
         ) : activeTab === 'profile' ? (
-             <ProfileView userData={userData} setUserData={setUserData} stats={stats} darkMode={darkMode} setDarkMode={setDarkMode} setShowInstallGuide={setShowInstallGuide} stravaData={stravaData} setStravaData={setStravaData} />
+             <div key="profile" className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                 <ProfileView userData={userData} setUserData={setUserData} stats={stats} darkMode={darkMode} setDarkMode={setDarkMode} setShowInstallGuide={setShowInstallGuide} stravaData={stravaData} setStravaData={setStravaData} />
+             </div>
         ) : (
-          <div className="space-y-6 animate-in slide-in-from-left-4">
+          <div key="stats" className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 p-6">
               <h3 className="font-bold text-slate-800 dark:text-white flex items-center gap-2 mb-6"><BarChart3 className="text-indigo-600"/> Votre Progression</h3>
               <div className="grid grid-cols-3 gap-4 mb-8">
