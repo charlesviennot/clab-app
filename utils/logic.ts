@@ -504,13 +504,20 @@ export const downloadShareImage = async (session: any, durationSeconds: number, 
             const log = exercisesLog ? exercisesLog[`${session.id}-ex-${i}`] : null;
             let exMaxWeight = 0;
             let exSets = 0;
-            if (log && log.sets && log.sets.length > 0) {
-                log.sets.forEach((s: any) => {
+            if (log && log.weights && log.weights.length > 0) {
+                log.weights.forEach((wStr: string, idx: number) => {
                     totalSets += 1;
                     exSets += 1;
-                    const w = parseFloat(s.weight) || 0;
+                    const w = parseFloat(wStr) || 0;
                     if (w > exMaxWeight) exMaxWeight = w;
-                    totalVolume += (parseInt(s.reps)||0) * w;
+                    
+                    let reps = 0;
+                    if (log.reps && log.reps[idx]) {
+                        reps = parseFloat(log.reps[idx]) || 0;
+                    } else {
+                        reps = parseInt(ex.reps) || 0;
+                    }
+                    totalVolume += reps * w;
                 });
                 exercisesList.push({ name: ex.name, sets: exSets, maxWeight: exMaxWeight });
             } else {

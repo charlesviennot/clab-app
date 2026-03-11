@@ -6,6 +6,7 @@ import {
   Brain, Target, CheckCircle, Download, Camera, Save, Upload, Copy, FileJson, Calculator, ChevronRight, Disc, HeartPulse, Trash2, AlertTriangle, History, ChevronUp, ChevronDown
 } from 'lucide-react';
 import { STRENGTH_PROTOCOLS, RUN_PROTOCOLS } from '../data/protocols';
+import { HEVY_EXERCISES } from '../data/exercises';
 import { parseRestTime, getMuscleActivation, formatStopwatch, calculate1RM, calculatePlates, calculateHeartRateZones, playBeep, initAudioContext } from '../utils/helpers';
 import { MuscleHeatmap } from './Visuals';
 import { downloadShareImage, downloadTCX } from '../utils/logic';
@@ -27,11 +28,11 @@ export const HeartRateModal = ({ onClose, userData }: { onClose: () => void, use
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="text-xs font-bold text-slate-400 uppercase">FC Max</label>
-                            <input type="number" value={maxHr} onChange={e => setMaxHr(parseInt(e.target.value))} className="w-full p-3 bg-slate-50 dark:bg-slate-700 rounded-xl border border-slate-200 dark:border-slate-600 font-black text-xl text-slate-700 dark:text-white outline-none focus:border-rose-500" />
+                            <input type="number" inputMode="decimal" pattern="[0-9]*" value={maxHr} onChange={e => setMaxHr(parseInt(e.target.value))} className="w-full p-3 bg-slate-50 dark:bg-slate-700 rounded-xl border border-slate-200 dark:border-slate-600 font-black text-xl text-slate-700 dark:text-white outline-none focus:border-rose-500" />
                         </div>
                         <div>
                             <label className="text-xs font-bold text-slate-400 uppercase">FC Repos</label>
-                            <input type="number" value={restHr} onChange={e => setRestHr(parseInt(e.target.value))} className="w-full p-3 bg-slate-50 dark:bg-slate-700 rounded-xl border border-slate-200 dark:border-slate-600 font-black text-xl text-slate-700 dark:text-white outline-none focus:border-rose-500" />
+                            <input type="number" inputMode="decimal" pattern="[0-9]*" value={restHr} onChange={e => setRestHr(parseInt(e.target.value))} className="w-full p-3 bg-slate-50 dark:bg-slate-700 rounded-xl border border-slate-200 dark:border-slate-600 font-black text-xl text-slate-700 dark:text-white outline-none focus:border-rose-500" />
                         </div>
                     </div>
 
@@ -85,6 +86,8 @@ export const PlateCalculatorModal = ({ onClose }: { onClose: () => void }) => {
                         <div className="flex items-center gap-2 mt-2">
                             <input 
                                 type="number" 
+                                inputMode="decimal"
+                                pattern="[0-9]*"
                                 value={targetWeight} 
                                 onChange={e => calculate(e.target.value)} 
                                 className="flex-1 p-4 bg-slate-50 dark:bg-slate-700 rounded-xl border border-slate-200 dark:border-slate-600 font-black text-3xl text-slate-700 dark:text-white outline-none focus:border-rose-500 focus:ring-4 focus:ring-rose-100 transition text-center" 
@@ -171,11 +174,11 @@ export const OneRMModal = ({ onClose }: { onClose: () => void }) => {
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="text-xs font-bold text-slate-400 uppercase">Poids (kg)</label>
-                            <input type="number" value={weight} onChange={e => setWeight(e.target.value)} className="w-full p-3 bg-slate-50 dark:bg-slate-700 rounded-xl border border-slate-200 dark:border-slate-600 font-black text-xl text-slate-700 dark:text-white outline-none focus:border-indigo-500" placeholder="ex: 60" />
+                            <input type="number" inputMode="decimal" pattern="[0-9]*" value={weight} onChange={e => setWeight(e.target.value)} className="w-full p-3 bg-slate-50 dark:bg-slate-700 rounded-xl border border-slate-200 dark:border-slate-600 font-black text-xl text-slate-700 dark:text-white outline-none focus:border-indigo-500" placeholder="ex: 60" />
                         </div>
                         <div>
                             <label className="text-xs font-bold text-slate-400 uppercase">Reps</label>
-                            <input type="number" value={reps} onChange={e => setReps(e.target.value)} className="w-full p-3 bg-slate-50 dark:bg-slate-700 rounded-xl border border-slate-200 dark:border-slate-600 font-black text-xl text-slate-700 dark:text-white outline-none focus:border-indigo-500" placeholder="ex: 8" />
+                            <input type="number" inputMode="decimal" pattern="[0-9]*" value={reps} onChange={e => setReps(e.target.value)} className="w-full p-3 bg-slate-50 dark:bg-slate-700 rounded-xl border border-slate-200 dark:border-slate-600 font-black text-xl text-slate-700 dark:text-white outline-none focus:border-indigo-500" placeholder="ex: 8" />
                         </div>
                     </div>
 
@@ -331,11 +334,11 @@ export const ExerciseCatalog = ({ onClose, onSelect }: {onClose: () => void, onS
   const [searchTerm, setSearchTerm] = useState('');
 
   const categories: Record<string, any[]> = useMemo(() => ({
-    'Jambes': [ ...STRENGTH_PROTOCOLS.hypertrophy.legs, ...STRENGTH_PROTOCOLS.force.legs, ...STRENGTH_PROTOCOLS.street_workout.legs, ...STRENGTH_PROTOCOLS.hyrox.legs_compromised, ...STRENGTH_PROTOCOLS.home_no_equipment.legs_home, ...STRENGTH_PROTOCOLS.reinforcement.stability_lower ],
-    'Pecs / Poussée': [ ...STRENGTH_PROTOCOLS.hypertrophy.push, ...STRENGTH_PROTOCOLS.street_workout.push, ...STRENGTH_PROTOCOLS.hypertrophy.chest_back.filter(e => e.note && e.note.includes('Pecs')), ...STRENGTH_PROTOCOLS.force.upper.filter(e => e.name.includes('Press') || e.name.includes('Dips')), ...STRENGTH_PROTOCOLS.home_no_equipment.push_home, ...STRENGTH_PROTOCOLS.reinforcement.total_body_tone.filter(e => e.name.includes('Pompes')) ],
-    'Dos / Tirage': [ ...STRENGTH_PROTOCOLS.hypertrophy.pull, ...STRENGTH_PROTOCOLS.street_workout.pull, ...STRENGTH_PROTOCOLS.hypertrophy.chest_back.filter(e => e.note && e.note.includes('Dos')), ...STRENGTH_PROTOCOLS.force.upper.filter(e => e.name.includes('Row') || e.name.includes('Pull')), ...STRENGTH_PROTOCOLS.home_no_equipment.pull_home, ...STRENGTH_PROTOCOLS.reinforcement.posture_upper ],
-    'Épaules / Bras': [ ...STRENGTH_PROTOCOLS.hypertrophy.shoulders_arms ],
-    'Gainage / Abdos': [ ...STRENGTH_PROTOCOLS.street_workout.skills_core, ...STRENGTH_PROTOCOLS.hypertrophy.pull.filter(e => e.name.includes('Crunch')), ...STRENGTH_PROTOCOLS.home_no_equipment.core_home, ...STRENGTH_PROTOCOLS.reinforcement.core_back ],
+    'Jambes': [ ...HEVY_EXERCISES.Legs, ...STRENGTH_PROTOCOLS.hypertrophy.legs, ...STRENGTH_PROTOCOLS.force.legs, ...STRENGTH_PROTOCOLS.street_workout.legs, ...STRENGTH_PROTOCOLS.hyrox.legs_compromised, ...STRENGTH_PROTOCOLS.home_no_equipment.legs_home, ...STRENGTH_PROTOCOLS.reinforcement.stability_lower ],
+    'Pecs / Poussée': [ ...HEVY_EXERCISES.Chest, ...STRENGTH_PROTOCOLS.hypertrophy.push, ...STRENGTH_PROTOCOLS.street_workout.push, ...STRENGTH_PROTOCOLS.hypertrophy.chest_back.filter(e => e.note && e.note.includes('Pecs')), ...STRENGTH_PROTOCOLS.force.upper.filter(e => e.name.includes('Press') || e.name.includes('Dips')), ...STRENGTH_PROTOCOLS.home_no_equipment.push_home, ...STRENGTH_PROTOCOLS.reinforcement.total_body_tone.filter(e => e.name.includes('Pompes')) ],
+    'Dos / Tirage': [ ...HEVY_EXERCISES.Back, ...STRENGTH_PROTOCOLS.hypertrophy.pull, ...STRENGTH_PROTOCOLS.street_workout.pull, ...STRENGTH_PROTOCOLS.hypertrophy.chest_back.filter(e => e.note && e.note.includes('Dos')), ...STRENGTH_PROTOCOLS.force.upper.filter(e => e.name.includes('Row') || e.name.includes('Pull')), ...STRENGTH_PROTOCOLS.home_no_equipment.pull_home, ...STRENGTH_PROTOCOLS.reinforcement.posture_upper ],
+    'Épaules / Bras': [ ...HEVY_EXERCISES.Shoulders, ...HEVY_EXERCISES.Arms, ...STRENGTH_PROTOCOLS.hypertrophy.shoulders_arms ],
+    'Gainage / Abdos': [ ...HEVY_EXERCISES.Core, ...STRENGTH_PROTOCOLS.street_workout.skills_core, ...STRENGTH_PROTOCOLS.hypertrophy.pull.filter(e => e.name.includes('Crunch')), ...STRENGTH_PROTOCOLS.home_no_equipment.core_home, ...STRENGTH_PROTOCOLS.reinforcement.core_back ],
     'Hyrox / Cardio': [ ...STRENGTH_PROTOCOLS.hyrox.functional_endurance, ...STRENGTH_PROTOCOLS.hyrox.sleds_strength, ...STRENGTH_PROTOCOLS.hyrox.ergs_power, ...STRENGTH_PROTOCOLS.home_no_equipment.full_home ],
     'Mobilité / PPG': [ ...STRENGTH_PROTOCOLS.reinforcement.mobility_flow, ...STRENGTH_PROTOCOLS.reinforcement.posture_upper, ...STRENGTH_PROTOCOLS.reinforcement.total_body_tone ]
   }), []);

@@ -310,13 +310,13 @@ export const LiveSessionTimer = ({ onFinish, timerRef, hapticEnabled }: { onFini
                     <div className="text-4xl font-black font-mono tracking-widest">{formatStopwatch(seconds)}</div>
                 </div>
                 <div className="flex gap-2">
-                    <button onClick={() => setAudioEnabled(!audioEnabled)} className={`p-3 rounded-full transition ${audioEnabled ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-500'}`}>
+                    <button onClick={() => setAudioEnabled(!audioEnabled)} className={`p-3 rounded-full transition active:scale-95 ${audioEnabled ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-500'}`}>
                         {audioEnabled ? <Volume2 size={20} /> : <VolumeX size={20} />}
                     </button>
-                    <button onClick={toggleTimer} className={`p-3 rounded-full transition ${isActive ? 'bg-yellow-500 text-yellow-900 hover:bg-yellow-400' : 'bg-green-500 text-white hover:bg-green-600'}`}>
+                    <button onClick={toggleTimer} className={`p-3 rounded-full transition active:scale-95 ${isActive ? 'bg-yellow-500 text-yellow-900 hover:bg-yellow-400' : 'bg-green-500 text-white hover:bg-green-600'}`}>
                         {isActive ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" />}
                     </button>
-                    <button onClick={handleStop} className="p-3 rounded-full bg-rose-600 text-white hover:bg-rose-700 transition">
+                    <button onClick={handleStop} className="p-3 rounded-full bg-rose-600 text-white hover:bg-rose-700 transition active:scale-95">
                         <StopCircle size={20} />
                     </button>
                 </div>
@@ -747,15 +747,15 @@ export const ProfileView = ({ userData, setUserData, stats, darkMode, setDarkMod
                 <div className="grid grid-cols-2 gap-4">
                      <div className="bg-slate-50 dark:bg-slate-700 p-3 rounded-xl border border-slate-100 dark:border-slate-600 focus-within:ring-2 ring-indigo-100 dark:ring-indigo-900 transition-all">
                         <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">Poids (kg)</div>
-                        <input type="number" value={userData.weight} onChange={(e) => setUserData({...userData, weight: parseFloat(e.target.value)})} className="w-full bg-transparent font-black text-xl text-slate-700 dark:text-white outline-none" />
+                        <input type="number" inputMode="decimal" pattern="[0-9]*" value={userData.weight} onChange={(e) => setUserData({...userData, weight: parseFloat(e.target.value)})} className="w-full bg-transparent font-black text-xl text-slate-700 dark:text-white outline-none" />
                      </div>
                      <div className="bg-slate-50 dark:bg-slate-700 p-3 rounded-xl border border-slate-100 dark:border-slate-600 focus-within:ring-2 ring-indigo-100 dark:ring-indigo-900 transition-all">
                         <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">Taille (cm)</div>
-                        <input type="number" value={userData.height} onChange={(e) => setUserData({...userData, height: parseFloat(e.target.value)})} className="w-full bg-transparent font-black text-xl text-slate-700 dark:text-white outline-none" />
+                        <input type="number" inputMode="decimal" pattern="[0-9]*" value={userData.height} onChange={(e) => setUserData({...userData, height: parseFloat(e.target.value)})} className="w-full bg-transparent font-black text-xl text-slate-700 dark:text-white outline-none" />
                      </div>
                      <div className="bg-slate-50 dark:bg-slate-700 p-3 rounded-xl border border-slate-100 dark:border-slate-600 focus-within:ring-2 ring-indigo-100 dark:ring-indigo-900 transition-all">
                         <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">Âge</div>
-                        <input type="number" value={userData.age} onChange={(e) => setUserData({...userData, age: parseFloat(e.target.value)})} className="w-full bg-transparent font-black text-xl text-slate-700 dark:text-white outline-none" />
+                        <input type="number" inputMode="decimal" pattern="[0-9]*" value={userData.age} onChange={(e) => setUserData({...userData, age: parseFloat(e.target.value)})} className="w-full bg-transparent font-black text-xl text-slate-700 dark:text-white outline-none" />
                      </div>
                      <div className="bg-slate-50 dark:bg-slate-700 p-3 rounded-xl border border-slate-100 dark:border-slate-600">
                         <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">Genre</div>
@@ -777,7 +777,7 @@ export const ProfileView = ({ userData, setUserData, stats, darkMode, setDarkMod
                             <span className="text-[9px] text-slate-400">{prs.squat.date}</span>
                         </div>
                         <div className="flex items-baseline gap-1">
-                            <input type="number" value={prs.squat.val} onChange={(e) => updatePR('squat', e.target.value)} className="w-full bg-transparent font-black text-xl text-slate-700 dark:text-white outline-none placeholder:text-slate-300" placeholder="0" />
+                            <input type="number" inputMode="decimal" pattern="[0-9]*" value={prs.squat.val} onChange={(e) => updatePR('squat', e.target.value)} className="w-full bg-transparent font-black text-xl text-slate-700 dark:text-white outline-none placeholder:text-slate-300" placeholder="0" />
                             <span className="text-xs font-bold text-slate-400">kg</span>
                         </div>
                     </div>
@@ -787,7 +787,7 @@ export const ProfileView = ({ userData, setUserData, stats, darkMode, setDarkMod
                             <span className="text-[9px] text-slate-400">{prs.bench.date}</span>
                         </div>
                         <div className="flex items-baseline gap-1">
-                            <input type="number" value={prs.bench.val} onChange={(e) => updatePR('bench', e.target.value)} className="w-full bg-transparent font-black text-xl text-slate-700 dark:text-white outline-none placeholder:text-slate-300" placeholder="0" />
+                            <input type="number" inputMode="decimal" pattern="[0-9]*" value={prs.bench.val} onChange={(e) => updatePR('bench', e.target.value)} className="w-full bg-transparent font-black text-xl text-slate-700 dark:text-white outline-none placeholder:text-slate-300" placeholder="0" />
                             <span className="text-xs font-bold text-slate-400">kg</span>
                         </div>
                     </div>
@@ -797,7 +797,7 @@ export const ProfileView = ({ userData, setUserData, stats, darkMode, setDarkMod
                             <span className="text-[9px] text-slate-400">{prs.deadlift.date}</span>
                         </div>
                         <div className="flex items-baseline gap-1">
-                            <input type="number" value={prs.deadlift.val} onChange={(e) => updatePR('deadlift', e.target.value)} className="w-full bg-transparent font-black text-xl text-slate-700 dark:text-white outline-none placeholder:text-slate-300" placeholder="0" />
+                            <input type="number" inputMode="decimal" pattern="[0-9]*" value={prs.deadlift.val} onChange={(e) => updatePR('deadlift', e.target.value)} className="w-full bg-transparent font-black text-xl text-slate-700 dark:text-white outline-none placeholder:text-slate-300" placeholder="0" />
                             <span className="text-xs font-bold text-slate-400">kg</span>
                         </div>
                     </div>
@@ -885,7 +885,7 @@ export const ProfileView = ({ userData, setUserData, stats, darkMode, setDarkMod
 
                         <button 
                             onClick={handleConnectStrava}
-                            className="w-full py-3 bg-[#FC4C02] text-white font-bold rounded-xl hover:bg-[#E34402] transition shadow-lg shadow-orange-200 flex items-center justify-center gap-2"
+                            className="w-full py-3 bg-[#FC4C02] text-white font-bold rounded-xl hover:bg-[#E34402] transition shadow-lg shadow-orange-200 flex items-center justify-center gap-2 active:scale-95"
                         >
                             Connecter avec Strava
                         </button>
@@ -907,7 +907,7 @@ export const ProfileView = ({ userData, setUserData, stats, darkMode, setDarkMod
 
                         <button 
                             onClick={handleSyncStrava}
-                            className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition shadow-lg shadow-indigo-200 flex items-center justify-center gap-2"
+                            className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition shadow-lg shadow-indigo-200 flex items-center justify-center gap-2 active:scale-95"
                         >
                             <Activity size={16}/> Synchroniser maintenant
                         </button>

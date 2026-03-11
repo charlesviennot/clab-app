@@ -67,6 +67,7 @@ export default function App() {
   const [userData, setUserData] = useState<any>(() => loadState('userData', defaultUserData));
   const [plan, setPlan] = useState<any[]>(() => loadState('plan', []));
   const [expandedWeek, setExpandedWeek] = useState<number | null>(() => loadState('expandedWeek', 1));
+  const [selectedDayIndex, setSelectedDayIndex] = useState<number>(() => (new Date().getDay() + 6) % 7);
   const [completedSessions, setCompletedSessions] = useState<Set<string>>(() => loadState('completedSessions', new Set()));
   const [completedExercises, setCompletedExercises] = useState<Set<string>>(() => loadState('completedExercises', new Set()));
   const [exercisesLog, setExercisesLog] = useState<any>(() => loadState('exercisesLog', {}));
@@ -494,11 +495,11 @@ export default function App() {
                     {userData.raceDate && <div className="text-[10px] text-slate-400 font-bold uppercase mt-1">Objectif le {new Date(userData.raceDate).toLocaleDateString()}</div>}
                 </div>
             </div>
-             <div className="flex w-full sm:w-auto bg-slate-800 rounded-lg p-1 overflow-x-auto">
-                    <button onClick={() => setActiveTab('profile')} className={`flex-1 sm:flex-none px-2 sm:px-4 py-2 rounded-md text-[10px] sm:text-xs font-bold transition text-center flex items-center justify-center gap-1 sm:gap-2 ${activeTab === 'profile' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}><User size={14} className="shrink-0"/> Profil</button>
-                    <button onClick={() => setActiveTab('plan')} className={`flex-1 sm:flex-none px-2 sm:px-4 py-2 rounded-md text-[10px] sm:text-xs font-bold transition text-center ${activeTab === 'plan' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}><span className="hidden sm:inline">Programme</span><span className="sm:hidden">Plan</span></button>
-                    <button onClick={() => setActiveTab('stats')} className={`flex-1 sm:flex-none px-2 sm:px-4 py-2 rounded-md text-[10px] sm:text-xs font-bold transition text-center ${activeTab === 'stats' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}>Science</button>
-                    <button onClick={() => setActiveTab('nutrition')} className={`flex-1 sm:flex-none px-2 sm:px-4 py-2 rounded-md text-[10px] sm:text-xs font-bold transition text-center flex items-center justify-center gap-1 ${activeTab === 'nutrition' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}><Utensils size={14} className="shrink-0"/> <span className="hidden sm:inline">Nutrition</span><span className="sm:hidden">Nutri</span></button>
+             <div className="hidden sm:flex w-auto bg-slate-800 rounded-lg p-1">
+                    <button onClick={() => setActiveTab('profile')} className={`px-4 py-2 rounded-md text-xs font-bold transition text-center flex items-center justify-center gap-2 ${activeTab === 'profile' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}><User size={14} className="shrink-0"/> Profil</button>
+                    <button onClick={() => setActiveTab('plan')} className={`px-4 py-2 rounded-md text-xs font-bold transition text-center flex items-center justify-center gap-2 ${activeTab === 'plan' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}><Calendar size={14} className="shrink-0"/> Programme</button>
+                    <button onClick={() => setActiveTab('stats')} className={`px-4 py-2 rounded-md text-xs font-bold transition text-center flex items-center justify-center gap-2 ${activeTab === 'stats' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}><BarChart3 size={14} className="shrink-0"/> Science</button>
+                    <button onClick={() => setActiveTab('nutrition')} className={`px-4 py-2 rounded-md text-xs font-bold transition text-center flex items-center justify-center gap-2 ${activeTab === 'nutrition' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}><Utensils size={14} className="shrink-0"/> Nutrition</button>
               </div>
             </div>
         </div>
@@ -616,9 +617,9 @@ export default function App() {
                                                 elapsed_time: lastCompletedData.duration,
                                                 description: `🔥 Séance validée sur C-Lab Performance\nL'application d'ingénierie sportive.\n\n📊 Détails de la séance :\n${lastCompletedData.session.exercises?.map((e:any, i:number) => {
                                                     const log = exercisesLog[`${lastCompletedData.session.id}-ex-${i}`];
-                                                    if (log && log.sets && log.sets.length > 0) {
-                                                        const bestWeight = Math.max(...log.sets.map((s:any)=>parseFloat(s.weight)||0));
-                                                        return `- ${e.name} : ${log.sets.length} séries (Max: ${bestWeight}kg)`;
+                                                    if (log && log.weights && log.weights.length > 0) {
+                                                        const bestWeight = Math.max(...log.weights.map((w:string)=>parseFloat(w)||0));
+                                                        return `- ${e.name} : ${log.weights.length} séries (Max: ${bestWeight}kg)`;
                                                     }
                                                     return `- ${e.name} : ${e.sets}x${e.reps} @ ${e.weight || 0}kg`;
                                                 }).join('\n') || ''}`
@@ -635,17 +636,17 @@ export default function App() {
                                         alert("Erreur réseau lors de l'envoi.");
                                     }
                                 }}
-                                className="w-full py-4 bg-[#FC4C02] text-white font-bold rounded-xl hover:bg-[#E34402] transition shadow-lg shadow-orange-200 flex items-center justify-center gap-2"
+                                className="w-full py-4 bg-[#FC4C02] text-white font-bold rounded-xl hover:bg-[#E34402] transition shadow-lg shadow-orange-200 flex items-center justify-center gap-2 active:scale-95"
                             >
                                 <Upload size={20}/> Envoyer sur Strava
                             </button>
                         ) : (
-                            <button onClick={() => downloadTCX(lastCompletedData.session, lastCompletedData.duration, lastCompletedData.date, exercisesLog)} className="w-full py-4 bg-slate-800 text-white font-bold rounded-xl hover:bg-slate-700 transition shadow-lg flex items-center justify-center gap-2">
+                            <button onClick={() => downloadTCX(lastCompletedData.session, lastCompletedData.duration, lastCompletedData.date, exercisesLog)} className="w-full py-4 bg-slate-800 text-white font-bold rounded-xl hover:bg-slate-700 transition shadow-lg flex items-center justify-center gap-2 active:scale-95">
                                 <Download size={20}/> Télécharger fichier Strava (.tcx)
                             </button>
                         )}
                         
-                        <button onClick={() => downloadShareImage(lastCompletedData.session, lastCompletedData.duration, lastCompletedData.date, exercisesLog)} className="w-full py-4 bg-white border-2 border-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition shadow-sm flex items-center justify-center gap-2"><Camera size={20}/> Partager en Image</button>
+                        <button onClick={() => downloadShareImage(lastCompletedData.session, lastCompletedData.duration, lastCompletedData.date, exercisesLog)} className="w-full py-4 bg-white border-2 border-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition shadow-sm flex items-center justify-center gap-2 active:scale-95"><Camera size={20}/> Partager en Image</button>
                         <button onClick={() => setLastCompletedData(null)} className="w-full py-3 text-slate-400 font-bold hover:text-slate-600 transition">Fermer</button>
                     </div>
                 </div>
@@ -768,7 +769,7 @@ export default function App() {
                     <div className="flex items-center bg-slate-50 p-1 rounded-xl border-2 border-transparent focus-within:border-slate-300 transition">
                         <button onClick={() => setUserData({...userData, durationWeeks: Math.max(4, userData.durationWeeks - 1), raceDate: null})} className="p-4 bg-white rounded-lg shadow-sm text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition active:scale-95"><Minus size={20} /></button>
                         <div className="flex-1 text-center relative">
-                            <input type="number" value={userData.durationWeeks} onChange={(e) => setUserData({...userData, durationWeeks: Number(e.target.value), raceDate: null})} className="w-full bg-transparent text-center font-black text-3xl text-slate-700 outline-none p-2"/>
+                            <input type="number" inputMode="decimal" pattern="[0-9]*" value={userData.durationWeeks} onChange={(e) => setUserData({...userData, durationWeeks: Number(e.target.value), raceDate: null})} className="w-full bg-transparent text-center font-black text-3xl text-slate-700 outline-none p-2"/>
                             <Clock className="absolute top-1/2 -translate-y-1/2 right-2 text-slate-200 opacity-50 pointer-events-none" size={40} />
                         </div>
                         <button onClick={() => setUserData({...userData, durationWeeks: userData.durationWeeks + 1, raceDate: null})} className="p-4 bg-white rounded-lg shadow-sm text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition active:scale-95"><Plus size={20} /></button>
@@ -867,7 +868,72 @@ export default function App() {
            
             {activeTab === 'plan' && step === 'result' && (
                 <>
-                    <DailyBriefing plan={plan} completedSessions={completedSessions} />
+                    {(() => {
+                        const jsDay = new Date().getDay();
+                const appDayIndex = (jsDay + 6) % 7;
+                const dayNames = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
+                const todayName = dayNames[appDayIndex];
+                
+                let activeWeek = plan.find((w: any) => !w.sessions.every((s: any) => completedSessions.has(s.id)));
+                if (!activeWeek && plan.length > 0) activeWeek = plan[plan.length - 1];
+                if (!activeWeek) return null;
+
+                const todaySchedule = activeWeek.schedule[appDayIndex];
+                const todaySessionIds = todaySchedule ? todaySchedule.sessionIds : [];
+                const todaySessions = activeWeek.sessions.filter((s: any) => todaySessionIds.includes(s.id));
+                const mainSession = todaySessions.length > 0 ? todaySessions[0] : null;
+                const isRest = !mainSession;
+                const isDone = mainSession && completedSessions.has(mainSession.id);
+
+                const isCardio = mainSession && (mainSession.category === 'run' || mainSession.category === 'hyrox');
+                const bgClass = isDone 
+                    ? "bg-gradient-to-r from-green-600 to-emerald-600" 
+                    : isCardio 
+                        ? "bg-gradient-to-br from-indigo-600 to-blue-500" 
+                        : "bg-gradient-to-br from-rose-600 to-orange-500";
+
+                return (
+                    <div className={`${isRest ? 'bg-gradient-to-br from-emerald-500 to-teal-600' : bgClass} rounded-3xl p-6 text-white mb-6 shadow-xl relative overflow-hidden animate-in slide-in-from-top-4 transition-all duration-500`}>
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-10 rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none"></div>
+                        <div className="relative z-10">
+                            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest opacity-80 mb-1">
+                                <Calendar size={12}/> {todayName} • Semaine {activeWeek.weekNumber}
+                            </div>
+                            {isRest ? (
+                                <>
+                                    <h2 className="text-2xl font-black">Repos & Récupération</h2>
+                                    <p className="text-sm opacity-90 mt-1">Profitez-en pour bien manger et dormir.</p>
+                                </>
+                            ) : (
+                                <>
+                                    <h2 className="text-2xl font-black leading-tight flex items-center gap-2">
+                                        {isDone ? "Séance Validée !" : mainSession.type}
+                                    </h2>
+                                    <div className="flex items-center gap-3 mt-2 text-sm font-medium opacity-90">
+                                        <div className="flex items-center gap-1"><Clock size={14}/> {mainSession.duration}</div>
+                                        {mainSession.distance && <div className="flex items-center gap-1"><Ruler size={14}/> {mainSession.distance}</div>}
+                                    </div>
+                                    {!isDone && (
+                                        <button 
+                                            onClick={() => {
+                                                setExpandedWeek(activeWeek.weekNumber);
+                                                setSelectedDayIndex(appDayIndex);
+                                                setExpandedSession(mainSession.id);
+                                                setTimeout(() => {
+                                                    document.getElementById(mainSession.id)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                                }, 100);
+                                            }}
+                                            className="mt-4 w-full py-3 bg-white text-slate-900 rounded-xl font-black flex items-center justify-center gap-2 shadow-lg hover:bg-slate-50 transition active:scale-95"
+                                        >
+                                            <Play size={18} className="fill-slate-900"/> Démarrer la séance
+                                        </button>
+                                    )}
+                                </>
+                            )}
+                        </div>
+                    </div>
+                );
+            })()}
                     
                     <div className="flex items-center justify-between mb-4 px-2">
                         <div>
@@ -909,257 +975,293 @@ export default function App() {
              </div>
             )}
 
-            {plan.map((week, weekIdx) => {
-                const isOpen = expandedWeek === week.weekNumber;
-                const sessionsToShow = filteredSessionIds ? week.sessions.filter((s: any) => filteredSessionIds.includes(s.id)) : week.sessions;
-                const allSessionsCompleted = week.sessions.every((s: any) => completedSessions.has(s.id));
-                const headerBgClass = allSessionsCompleted ? 'bg-green-50 border-green-200 dark:bg-green-900/30 dark:border-green-800' : isOpen ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-200 dark:shadow-none' : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 hover:border-indigo-200 dark:hover:border-slate-600';
-                const headerIconClass = allSessionsCompleted ? 'bg-green-600 text-white' : isOpen ? 'bg-white text-indigo-600' : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300';
-                const headerTextClass = allSessionsCompleted ? 'text-green-800 dark:text-green-300' : isOpen ? 'text-white' : 'text-slate-800 dark:text-white';
-                const subTextClass = allSessionsCompleted ? 'text-green-600 dark:text-green-400' : isOpen ? 'text-indigo-200' : 'text-slate-400';
+            {(() => {
+                const currentWeek = plan.find((w: any) => w.weekNumber === expandedWeek) || plan[0];
+                if (!currentWeek) return null;
+
+                const weekSessions = currentWeek.sessions;
+                const completedInWeek = weekSessions.filter((s: any) => completedSessions.has(s.id)).length;
+                const weekProgress = Math.round((completedInWeek / weekSessions.length) * 100) || 0;
+                const dayNamesShort = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
+
+                const selectedDaySchedule = currentWeek.schedule[selectedDayIndex];
+                const selectedSessionIds = selectedDaySchedule ? selectedDaySchedule.sessionIds : [];
+                const sessionsToShow = currentWeek.sessions.filter((s: any) => selectedSessionIds.includes(s.id));
+                const allSessionsCompleted = weekSessions.every((s: any) => completedSessions.has(s.id));
 
                 return (
-                  <div key={week.weekNumber} className={`rounded-xl shadow-sm border overflow-hidden transition-all ${allSessionsCompleted ? 'border-green-200' : 'border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800'} ${isOpen ? 'ring-2 ring-indigo-500' : ''}`}>
-                    <button onClick={() => setExpandedWeek(isOpen ? null : week.weekNumber)} className={`w-full p-4 flex items-center justify-between ${headerBgClass}`}>
-                      <div className="flex items-center gap-3">
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm ${headerIconClass}`}>{allSessionsCompleted ? <Check size={18}/> : week.weekNumber}</div>
-                        <div className="text-left"><h3 className={`font-bold text-sm ${headerTextClass}`}>{week.focus}</h3><span className={`text-[10px] font-bold uppercase tracking-wider ${subTextClass}`}>{allSessionsCompleted ? "Semaine validée" : week.volumeLabel || "PROGRAMME"}</span></div>
-                      </div>
-                      {isOpen ? <ChevronUp size={16} className="text-white"/> : <ChevronDown size={16} className="text-slate-300"/>}
-                    </button>
-                   
-                    {isOpen && (
-                      <div className="p-2 space-y-2">
-                        {week.schedule && week.schedule.length > 0 && (
-                            <div className="mx-1 mb-4 border-2 border-slate-100 dark:border-slate-700 rounded-xl overflow-hidden bg-slate-50/50 dark:bg-slate-900/50">
-                                <div className="bg-slate-100 dark:bg-slate-800 px-4 py-2 flex items-center justify-between border-b border-slate-200 dark:border-slate-700">
-                                    <div className="flex items-center gap-2"><Calendar size={14} className="text-slate-500"/><h4 className="text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide">Planning Semaine</h4></div>
-                                    <div className="flex items-center gap-3">
-                                        {filteredSessionIds && (
-                                            <button onClick={() => setFilteredSessionIds(null)} className="text-[10px] text-indigo-600 font-bold flex items-center gap-1 hover:underline"><RotateCcw size={10}/> Voir tout</button>
-                                        )}
-                                        <button onClick={() => resetWeekOrder(week.weekNumber)} className="text-[10px] text-slate-400 hover:text-indigo-600 font-bold flex items-center gap-1 transition-colors" title="Réinitialiser l'ordre"><RotateCcw size={10}/> Ordre</button>
-                                        <button onClick={() => resetWeekProgress(week)} className="text-[10px] text-slate-400 hover:text-rose-600 font-bold flex items-center gap-1 transition-colors" title="Réinitialiser la progression"><Trash2 size={10}/> Zéro</button>
-                                    </div>
+                    <div className="space-y-4">
+                        {/* Week Navigator */}
+                        <div className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700">
+                            <div className="flex items-center justify-between mb-4">
+                                <button 
+                                    onClick={() => {
+                                        const prev = plan.find((w: any) => w.weekNumber === currentWeek.weekNumber - 1);
+                                        if (prev) setExpandedWeek(prev.weekNumber);
+                                    }}
+                                    disabled={currentWeek.weekNumber === 1}
+                                    className="p-2 text-slate-400 hover:text-indigo-600 disabled:opacity-30 transition"
+                                >
+                                    <ArrowLeft size={20}/>
+                                </button>
+                                <div className="text-center">
+                                    <h3 className="font-black text-slate-800 dark:text-white">Semaine {currentWeek.weekNumber}</h3>
+                                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{currentWeek.focus}</div>
                                 </div>
-                                <div className="p-3 grid grid-cols-1 gap-2 text-xs">
-                                    {week.schedule.map((day: any, i: number) => {
-                                        const isSelected = filteredSessionIds && day.sessionIds !== null && day.sessionIds.length === filteredSessionIds.length && day.sessionIds.every((val: any, index: any) => val === filteredSessionIds[index]);
-                                        const hasActivity = day.sessionIds.length > 0;
-                                        const isDayCompleted = hasActivity && day.sessionIds.every((id: any) => completedSessions.has(id));
-                                        const isSwapSource = swapSelection && swapSelection.weekIdx === week.weekNumber && swapSelection.dayIdx === i;
+                                <button 
+                                    onClick={() => {
+                                        const next = plan.find((w: any) => w.weekNumber === currentWeek.weekNumber + 1);
+                                        if (next) setExpandedWeek(next.weekNumber);
+                                    }}
+                                    disabled={currentWeek.weekNumber === plan.length}
+                                    className="p-2 text-slate-400 hover:text-indigo-600 disabled:opacity-30 transition"
+                                >
+                                    <ArrowRight size={20}/>
+                                </button>
+                            </div>
 
-                                        return (
-                                            <div key={i} className={`flex items-center justify-between p-2 rounded border transition select-none ${isSelected ? 'bg-indigo-600 border-indigo-600 text-white shadow-md scale-[1.02] ring-1 ring-indigo-300' : isDayCompleted ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 text-green-700 dark:text-green-300' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-indigo-300'} ${isSwapSource ? 'ring-2 ring-indigo-500 border-indigo-500 bg-indigo-50 animate-pulse' : ''} ${swapSelection && !isSwapSource ? 'cursor-pointer hover:bg-slate-50' : ''}`}
-                                                    onClick={() => {
-                                                        if (swapSelection) { handleSwapRequest(week.weekNumber, i); }
-                                                        else if (hasActivity) { const idsToFilter = day.sessionIds; handleDayClick(idsToFilter); }
-                                                    }}
-                                                >
-                                                    <div className="flex items-center gap-3">
-                                                         <button onClick={(e) => { e.stopPropagation(); handleSwapRequest(week.weekNumber, i); }} className={`p-1 rounded-md transition-colors ${isSwapSource ? 'bg-indigo-200 text-indigo-700' : 'bg-slate-100 dark:bg-slate-700 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50'}`} title="Déplacer ce jour"><ArrowRightLeft size={12}/></button>
-                                                         <span className={`font-bold w-16 ${isSelected ? 'text-white' : 'text-slate-800 dark:text-white'}`}>{day.day}</span>
-                                                    </div>
-                                                    <div className="flex items-center gap-1 overflow-hidden">
-                                                         {isDayCompleted && !isSelected && <CheckCircle size={10} className="text-green-500 shrink-0"/>}
-                                                         <span className={`font-medium truncate ${isSelected ? 'text-indigo-100' : day.activity.includes('Repos') ? 'text-slate-400' : 'text-indigo-600 dark:text-indigo-400'}`}>{day.activity}</span>
-                                                    </div>
-                                                </div>
-                                        );
-                                    })}
+                            {/* Progress Bar */}
+                            <div className="mb-4">
+                                <div className="flex justify-between text-[10px] font-bold text-slate-500 mb-1">
+                                    <span>Progression</span>
+                                    <span>🔥 {completedInWeek}/{weekSessions.length} séances</span>
+                                </div>
+                                <div className="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                                    <div className="h-full bg-indigo-600 rounded-full transition-all duration-500" style={{ width: `${weekProgress}%` }}></div>
                                 </div>
                             </div>
-                        )}
 
-                        {sessionsToShow.length > 0 ? (
-                            sessionsToShow.map((session: any) => {
-                            const isDone = completedSessions.has(session.id);
-                            const isExpandedSession = expandedSession === session.id;
-                            const completedCount = session.exercises ? session.exercises.filter((_: any, i: number) => completedExercises.has(`${session.id}-ex-${i}`)).length : 0;
-                            const isSessionFullyDone = session.exercises && completedCount === session.exercises.length;
-                            const sessionKey = filteredSessionIds ? `${session.id}-filtered` : session.id;
+                            {/* Days Row */}
+                            <div className="flex justify-between items-center">
+                                {currentWeek.schedule.map((day: any, i: number) => {
+                                    const isSelected = selectedDayIndex === i;
+                                    const hasActivity = day.sessionIds.length > 0;
+                                    const isDayCompleted = hasActivity && day.sessionIds.every((id: any) => completedSessions.has(id));
+                                    
+                                    let dotColor = "bg-transparent";
+                                    if (hasActivity) {
+                                        if (isDayCompleted) dotColor = "bg-green-500";
+                                        else {
+                                            const s = currentWeek.sessions.find((s:any) => s.id === day.sessionIds[0]);
+                                            if (s) {
+                                                if (s.intensity === 'high') dotColor = "bg-rose-500";
+                                                else if (s.intensity === 'medium') dotColor = "bg-amber-500";
+                                                else dotColor = "bg-blue-500";
+                                            }
+                                        }
+                                    }
 
-                            return (
-                                <div id={session.id} key={sessionKey} className={`rounded-xl border transition-all duration-500 ease-out ${
-                                    filteredSessionIds 
-                                        ? 'animate-in slide-in-from-left-4 fade-in zoom-in-95 duration-500' 
-                                        : 'animate-in slide-in-from-bottom-2 fade-in duration-300'
-                                } ${
-                                    isDone 
-                                        ? 'bg-green-50/50 dark:bg-green-900/10 border-green-200 dark:border-green-800 opacity-60' 
-                                        : isExpandedSession 
-                                            ? 'bg-white dark:bg-slate-800 border-indigo-600 shadow-2xl ring-4 ring-indigo-500/10 scale-[1.02] z-10 relative my-3' 
-                                            : filteredSessionIds 
-                                                ? 'bg-white dark:bg-slate-800 border-indigo-200 dark:border-indigo-900 shadow-lg ring-1 ring-indigo-100 dark:ring-indigo-900'
-                                                : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 hover:border-indigo-300 shadow-sm hover:shadow-md'
-                                }`}>
-                                     
-                                    {isExpandedSession && !isDone && (
-                                        <div className="bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest py-1.5 flex items-center justify-center gap-2 rounded-t-lg animate-in slide-in-from-top-1 fade-in duration-300">
-                                            <Flame size={12} className="text-yellow-300 fill-yellow-300 animate-pulse"/>
-                                            GO ! MODE GUERRIER ACTIVÉ
-                                            <Flame size={12} className="text-yellow-300 fill-yellow-300 animate-pulse"/>
-                                        </div>
-                                    )}
-
-                                    <div onClick={() => { if(session.exercises) { setExpandedSession(isExpandedSession ? null : session.id); } else { toggleSession(session.id); } }} className={`cursor-pointer relative ${isExpandedSession && !isDone ? 'p-4' : 'p-3'}`}>
-                                        {isDone && (
-                                            <button onClick={(e) => { e.stopPropagation(); unvalidateSession(session.id); }} className="absolute top-2 right-2 text-green-600 hover:text-green-800 bg-white dark:bg-slate-700 p-1 rounded-full shadow-sm z-20" title="Annuler la validation"><Undo2 size={14} /></button>
-                                        )}
-                                        <div className="flex justify-between items-center mb-3">
-                                            <div className="flex items-center gap-2">
-                                            {isDone ? <CheckCircle size={16} className="text-green-500"/> : session.category === 'run' ? <Footprints size={16} className="text-indigo-500"/> : <Dumbbell size={16} className="text-rose-500"/>}
-                                            <span className={`font-bold text-xs uppercase ${isDone ? 'text-green-700 dark:text-green-400' : 'text-slate-700 dark:text-white'}`}>{session.type}</span>
-                                            </div>
-                                            <div className="flex items-center gap-2"><RpeBadge level={session.rpe} /><WorkoutViz structure={session.structure} intensity={session.intensity}/></div>
-                                        </div>
-                                        <div className="flex flex-col gap-2">
-                                                <div className="flex items-center gap-3 text-xs font-medium text-slate-500 dark:text-slate-400">
-                                                    <div className="flex items-center gap-1"><Clock size={12}/> {session.duration}</div>
-                                                    {session.category === 'run' && session.distance && (<div className="flex items-center gap-1 text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-1.5 rounded"><Ruler size={12}/> {session.distance}</div>)}
-                                                </div>
-                                                <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">{session.description}</p>
-                                                {!isDone && session.planningAdvice && (<div className="flex items-start gap-1.5 mt-1 bg-amber-50 dark:bg-amber-900/20 p-2 rounded-lg text-[10px] text-amber-800 dark:text-amber-200 border border-amber-100 dark:border-amber-800"><Info size={12} className="shrink-0 mt-0.5"/><span><strong>Conseil :</strong> {session.planningAdvice}</span></div>)}
-                                        </div>
-                                        {session.category === 'run' && session.paceGap > -1 && (<div className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-700 flex justify-end items-baseline gap-1"><span className="text-[10px] text-slate-400 uppercase font-bold">Cible</span><span className="font-black text-slate-800 dark:text-white text-sm">{session.paceTarget}</span><span className="text-[9px] text-slate-400">min/km</span></div>)}
-                                        {session.exercises && !isDone && (<div className="mt-2 text-center text-[10px] text-slate-400 font-medium">{session.category === 'run' ? "Cliquez pour voir la séance ▼" : "Cliquez pour le suivi série ▼"}</div>)}
-                                    </div>
-                                    {isExpandedSession && session.exercises && !isDone && (
-                                        <div className="bg-slate-50 dark:bg-slate-900/50 border-t border-slate-100 dark:border-slate-700 p-3 rounded-b-lg animate-in slide-in-from-top-2">
-                                                 
-                                                {/* RUNNING GPS / TIMER LOGIC */}
-                                                {session.category === 'run' && (
-                                                    <div className="mb-4 space-y-2">
-                                                        {activeTimerSessionId === session.id && !activeGPSId ? (
-                                                            <LiveSessionTimer 
-                                                                timerRef={currentTimerRef}
-                                                                onFinish={(duration) => handleTimerFinish(session.id, duration)} 
-                                                                hapticEnabled={userData.hapticEnabled}
-                                                            />
-                                                        ) : activeGPSId === session.id ? (
-                                                            <RunTracker 
-                                                                onFinish={(duration, dist) => handleTimerFinish(session.id, duration, dist)} 
-                                                                targetDistance={session.distance}
-                                                                hapticEnabled={userData.hapticEnabled}
-                                                            />
-                                                        ) : (
-                                                            <div className="flex flex-col gap-2">
-                                                                <div className="flex gap-2">
-                                                                    <button onClick={() => setActiveTimerSessionId(session.id)} className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl flex items-center justify-center gap-2 font-bold text-sm shadow-md transition-all">
-                                                                        <Play size={16} className="fill-white"/> Chrono Simple
-                                                                    </button>
-                                                                    <button onClick={() => setActiveGPSId(session.id)} className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl flex items-center justify-center gap-2 font-bold text-sm shadow-md transition-all">
-                                                                        <MapPin size={16}/> Mode GPS
-                                                                    </button>
-                                                                </div>
-                                                                <div className="flex gap-2">
-                                                                    <button onClick={() => downloadWorkoutZWO(session)} className="flex-1 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-xl flex items-center justify-center gap-1.5 font-bold text-xs shadow-sm transition-all">
-                                                                        <Download size={14}/> Zwift (.zwo)
-                                                                    </button>
-                                                                    <button onClick={() => downloadWorkoutTCX(session)} className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl flex items-center justify-center gap-1.5 font-bold text-xs shadow-sm transition-all">
-                                                                        <Download size={14}/> Garmin (.tcx)
-                                                                    </button>
-                                                                    <button onClick={() => downloadWorkoutJSON(session)} className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl flex items-center justify-center gap-1.5 font-bold text-xs shadow-sm transition-all">
-                                                                        <Download size={14}/> WOD (.json)
-                                                                    </button>
-                                                                </div>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                )}
-
-                                                {/* STRENGTH TIMER LOGIC */}
-                                                {session.category !== 'run' && (
-                                                    activeTimerSessionId === session.id ? (
-                                                        <LiveSessionTimer 
-                                                            timerRef={currentTimerRef}
-                                                            onFinish={(duration) => handleTimerFinish(session.id, duration)} 
-                                                            hapticEnabled={userData.hapticEnabled}
-                                                        />
-                                                    ) : (
-                                                        <button onClick={() => setActiveTimerSessionId(session.id)} className="w-full mb-4 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl flex items-center justify-center gap-2 font-bold text-sm shadow-md transition-all">
-                                                            <Play size={16} className="fill-white"/> Démarrer le Chrono
-                                                        </button>
-                                                    )
-                                                )}
-
-                                                <h4 className="text-[10px] font-bold uppercase text-slate-400 mb-2">Protocole Scientifique (Cliquer pour info)</h4>
-                                                <div className="space-y-2">
-                                                    {session.exercises.map((exo: any, idx: number) => {
-                                                        const uniqueExerciseId = `${session.id}-ex-${idx}`;
-                                                        const isChecked = completedExercises.has(uniqueExerciseId);
-                                                        const isSwapSelected = exerciseSwapSelection && exerciseSwapSelection.sessionId === session.id && exerciseSwapSelection.exIdx === idx;
-                                                        return (
-                                                            <div key={idx} className={`bg-white dark:bg-slate-800 p-2 rounded border transition-colors flex items-center gap-3 ${isChecked ? 'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20' : isSwapSelected ? 'border-indigo-500 bg-indigo-50 ring-1 ring-indigo-500 animate-pulse' : 'border-slate-200 dark:border-slate-700 hover:border-indigo-200 hover:bg-indigo-50 dark:hover:bg-slate-700'} ${exerciseSwapSelection && !isSwapSelected ? 'cursor-pointer hover:bg-slate-100' : ''}`} onClick={() => { if (exerciseSwapSelection) handleExerciseSwapRequest(week.weekNumber, session.id, idx); }}>
-                                                                    <div onClick={(e) => { e.stopPropagation(); handleExerciseSwapRequest(week.weekNumber, session.id, idx); }} className={`p-1 rounded-md transition-colors cursor-pointer ${isSwapSelected ? 'bg-indigo-200 text-indigo-700' : 'bg-slate-100 dark:bg-slate-700 text-slate-300 hover:text-indigo-500 hover:bg-indigo-50'}`} title="Déplacer cet exercice">
-                                                                        <ArrowRight size={14} />
-                                                                    </div>
-                                                                    <div onClick={(e) => { e.stopPropagation(); handleDeleteExercise(week.weekNumber, session.id, idx); }} className="p-1 rounded-md transition-colors cursor-pointer bg-slate-100 dark:bg-slate-700 text-slate-300 hover:text-rose-500 hover:bg-rose-50" title="Supprimer cet exercice">
-                                                                        <Trash2 size={14} />
-                                                                    </div>
-                                                                    {session.category !== 'run' && (
-                                                                    <div onClick={(e) => { e.stopPropagation(); toggleExercise(uniqueExerciseId); }} className="cursor-pointer">
-                                                                        {isChecked ? <Check size={20} className="text-green-500" /> : <Square size={20} className="text-slate-300 hover:text-indigo-400" />}
-                                                                    </div>
-                                                                    )}
-                                                                    <div className="flex-1 flex justify-between items-center cursor-help" onClick={() => setModalExercise({data: exo, id: session.id, category: session.category, index: idx})}>
-                                                                        <div className="flex items-center gap-2">
-                                                                            <Info size={14} className="text-slate-300"/>
-                                                                            <div className={isChecked ? 'opacity-50' : ''}>
-                                                                                <div className="font-bold text-xs text-slate-800 dark:text-white">{exo.name}</div>
-                                                                                <div className="text-[10px] text-slate-500 dark:text-slate-400">{exo.sets.toString().includes('min') || exo.sets.toString().includes('bloc') ? exo.sets : `${exo.sets} séries`} • {exo.reps.includes('reps') ? exo.reps : `${exo.reps}`} {exo.rest !== '-' ? `• R: ${exo.rest}` : ''}</div>
-                                                                            </div>
-                                                                        </div>
-                                                                        <div className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${isChecked ? 'bg-green-100 text-green-700' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}`}>RPE {exo.rpe}</div>
-                                                                    </div>
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                                <button onClick={() => setCatalogSessionId(session.id)} className="w-full mt-2 py-2 border border-dashed border-indigo-200 text-indigo-500 rounded-lg text-xs font-bold hover:bg-indigo-50 hover:border-indigo-300 transition flex items-center justify-center gap-1">
-                                                    <Plus size={14}/> Ajouter un exercice
-                                                </button>
-
-                                                { (session.category === 'run' || isSessionFullyDone) && (
-                                                    <button 
-                                                        onClick={(e) => { 
-                                                            e.stopPropagation();
-                                                            if (activeTimerSessionId === session.id) {
-                                                                handleTimerFinish(session.id, currentTimerRef.current);
-                                                            } else {
-                                                                const theoreticalTime = (typeof session.durationMin === 'number' ? session.durationMin : 45) * 60;
-                                                                handleTimerFinish(session.id, theoreticalTime);
-                                                            }
-                                                        }} 
-                                                        className="mt-3 w-full py-2 bg-green-500 text-white rounded font-bold text-xs flex items-center justify-center gap-1 animate-in fade-in slide-in-from-bottom-2 hover:bg-green-600 transition"
-                                                    >
-                                                        <CheckCircle size={12} /> {session.category === 'run' ? "Terminer la séance" : "Valider toute la séance"}
-                                                    </button>
-                                                )}
-                                        </div>
-                                    )}
-                                </div>
-                            );
-                            })
-                        ) : (
-                            <div className="p-8 text-center text-slate-400 text-xs italic animate-in fade-in">Aucune séance prévue ce jour-là. Repos ! 💤</div>
-                        )}
-                      </div>
-                    )}
-                   
-                    {isOpen && allSessionsCompleted && (
-                        <div className="p-4 border-t border-green-100 dark:border-green-900 bg-green-50 dark:bg-green-900/30 flex flex-col gap-3 animate-in slide-in-from-bottom-2">
-                            <div className="flex items-center gap-2 text-green-800 dark:text-green-300 text-sm font-bold"><Award size={18}/> Semaine Terminée ! Bilan ?</div>
-                            <div className="flex gap-2">
-                                <button onClick={() => adaptDifficulty(week.weekNumber, 'easier')} className="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-white dark:bg-slate-700 border border-green-200 dark:border-green-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-bold shadow-sm hover:bg-slate-50 transition"><ThumbsDown size={14}/> Trop dur</button>
-                                <button onClick={() => adaptDifficulty(week.weekNumber, 'keep')} className="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-green-600 border border-green-600 text-white rounded-xl text-xs font-bold shadow-sm hover:bg-green-700 transition"><CheckCircle size={14}/> Parfait</button>
-                                <button onClick={() => adaptDifficulty(week.weekNumber, 'harder')} className="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-white dark:bg-slate-700 border border-green-200 dark:border-green-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-bold shadow-sm hover:bg-slate-50 transition"><Flame size={14}/> Trop facile</button>
+                                    return (
+                                        <button 
+                                            key={i}
+                                            onClick={() => setSelectedDayIndex(i)}
+                                            className={`flex flex-col items-center gap-1 p-2 rounded-xl min-w-[40px] transition-all ${isSelected ? 'bg-indigo-600 text-white shadow-md scale-105' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
+                                        >
+                                            <span className="text-[10px] font-bold uppercase">{dayNamesShort[i]}</span>
+                                            <span className={`text-sm font-black ${isSelected ? 'text-white' : 'text-slate-800 dark:text-white'}`}>{day.day}</span>
+                                            <div className={`w-1.5 h-1.5 rounded-full ${dotColor}`}></div>
+                                        </button>
+                                    );
+                                })}
                             </div>
                         </div>
-                    )}
-                  </div>
+
+                        {/* Sessions for Selected Day */}
+                        <div className="space-y-4">
+                            {sessionsToShow.length === 0 ? (
+                                <div className="bg-slate-50 dark:bg-slate-800/50 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-2xl p-8 text-center">
+                                    <Coffee size={32} className="mx-auto text-slate-300 mb-3"/>
+                                    <h4 className="font-bold text-slate-600 dark:text-slate-300">Jour de repos</h4>
+                                    <p className="text-xs text-slate-400 mt-1">Récupération active ou repos total.</p>
+                                </div>
+                            ) : (
+                                sessionsToShow.map((session: any) => {
+                                    const isDone = completedSessions.has(session.id);
+                                    const isExpandedSession = expandedSession === session.id;
+                                    const completedCount = session.exercises ? session.exercises.filter((_: any, i: number) => completedExercises.has(`${session.id}-ex-${i}`)).length : 0;
+                                    const isSessionFullyDone = session.exercises && completedCount === session.exercises.length;
+                                    const sessionKey = session.id;
+
+                                    let borderColor = "border-slate-100 dark:border-slate-700";
+                                    let iconColor = "text-indigo-500";
+                                    if (!isDone) {
+                                        if (session.intensity === 'high') { borderColor = "border-rose-200 dark:border-rose-900/50"; iconColor = "text-rose-500"; }
+                                        else if (session.intensity === 'medium') { borderColor = "border-amber-200 dark:border-amber-900/50"; iconColor = "text-amber-500"; }
+                                        else { borderColor = "border-blue-200 dark:border-blue-900/50"; iconColor = "text-blue-500"; }
+                                    }
+
+                                    return (
+                                        <div id={session.id} key={sessionKey} className={`rounded-xl border-2 transition-all duration-500 ease-out animate-in slide-in-from-bottom-2 fade-in duration-300 ${
+                                            isDone 
+                                                ? 'bg-green-50/50 dark:bg-green-900/10 border-green-200 dark:border-green-800 opacity-60' 
+                                                : isExpandedSession 
+                                                    ? `bg-white dark:bg-slate-800 shadow-2xl scale-[1.02] z-10 relative my-3 ${session.intensity === 'high' ? 'border-rose-500 ring-4 ring-rose-500/10' : session.intensity === 'medium' ? 'border-amber-500 ring-4 ring-amber-500/10' : 'border-blue-500 ring-4 ring-blue-500/10'}` 
+                                                    : `bg-white dark:bg-slate-800 shadow-sm hover:shadow-md ${borderColor}`
+                                        }`}>
+                                             
+                                            {isExpandedSession && !isDone && (
+                                                <div className={`${session.intensity === 'high' ? 'bg-rose-600' : session.intensity === 'medium' ? 'bg-amber-500' : 'bg-blue-600'} text-white text-[10px] font-black uppercase tracking-widest py-1.5 flex items-center justify-center gap-2 rounded-t-lg animate-in slide-in-from-top-1 fade-in duration-300`}>
+                                                    <Flame size={12} className="text-yellow-300 fill-yellow-300 animate-pulse"/>
+                                                    GO ! MODE GUERRIER ACTIVÉ
+                                                    <Flame size={12} className="text-yellow-300 fill-yellow-300 animate-pulse"/>
+                                                </div>
+                                            )}
+
+                                            <div onClick={() => { if(session.exercises) { setExpandedSession(isExpandedSession ? null : session.id); } else { toggleSession(session.id); } }} className={`cursor-pointer relative ${isExpandedSession && !isDone ? 'p-4' : 'p-3'}`}>
+                                                {isDone && (
+                                                    <button onClick={(e) => { e.stopPropagation(); unvalidateSession(session.id); }} className="absolute top-2 right-2 text-green-600 hover:text-green-800 bg-white dark:bg-slate-700 p-1 rounded-full shadow-sm z-20" title="Annuler la validation"><Undo2 size={14} /></button>
+                                                )}
+                                                <div className="flex justify-between items-center mb-3">
+                                                    <div className="flex items-center gap-2">
+                                                    {isDone ? <CheckCircle size={16} className="text-green-500"/> : session.category === 'run' ? <Footprints size={16} className={iconColor}/> : <Dumbbell size={16} className={iconColor}/>}
+                                                    <span className={`font-bold text-xs uppercase ${isDone ? 'text-green-700 dark:text-green-400' : 'text-slate-700 dark:text-white'}`}>{session.type}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2"><RpeBadge level={session.rpe} /><WorkoutViz structure={session.structure} intensity={session.intensity}/></div>
+                                                </div>
+                                                <div className="flex flex-col gap-2">
+                                                        <div className="flex items-center gap-3 text-xs font-medium text-slate-500 dark:text-slate-400">
+                                                            <div className="flex items-center gap-1"><Clock size={12}/> {session.duration}</div>
+                                                            {session.category === 'run' && session.distance && (<div className="flex items-center gap-1 text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-1.5 rounded"><Ruler size={12}/> {session.distance}</div>)}
+                                                        </div>
+                                                        <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">{session.description}</p>
+                                                        {!isDone && session.planningAdvice && (<div className="flex items-start gap-1.5 mt-1 bg-amber-50 dark:bg-amber-900/20 p-2 rounded-lg text-[10px] text-amber-800 dark:text-amber-200 border border-amber-100 dark:border-amber-800"><Info size={12} className="shrink-0 mt-0.5"/><span><strong>Conseil :</strong> {session.planningAdvice}</span></div>)}
+                                                </div>
+                                                {session.category === 'run' && session.paceGap > -1 && (<div className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-700 flex justify-end items-baseline gap-1"><span className="text-[10px] text-slate-400 uppercase font-bold">Cible</span><span className="font-black text-slate-800 dark:text-white text-sm">{session.paceTarget}</span><span className="text-[9px] text-slate-400">min/km</span></div>)}
+                                                {session.exercises && !isDone && (<div className="mt-2 text-center text-[10px] text-slate-400 font-medium">{session.category === 'run' ? "Cliquez pour voir la séance ▼" : "Cliquez pour le suivi série ▼"}</div>)}
+                                            </div>
+                                            {isExpandedSession && session.exercises && !isDone && (
+                                                <div className="bg-slate-50 dark:bg-slate-900/50 border-t border-slate-100 dark:border-slate-700 p-3 rounded-b-lg animate-in slide-in-from-top-2">
+                                                         
+                                                        {/* RUNNING GPS / TIMER LOGIC */}
+                                                        {session.category === 'run' && (
+                                                            <div className="mb-4 space-y-2">
+                                                                {activeTimerSessionId === session.id && !activeGPSId ? (
+                                                                    <LiveSessionTimer 
+                                                                        timerRef={currentTimerRef}
+                                                                        onFinish={(duration) => handleTimerFinish(session.id, duration)} 
+                                                                        hapticEnabled={userData.hapticEnabled}
+                                                                    />
+                                                                ) : activeGPSId === session.id ? (
+                                                                    <RunTracker 
+                                                                        onFinish={(duration, dist) => handleTimerFinish(session.id, duration, dist)} 
+                                                                        targetDistance={session.distance}
+                                                                        hapticEnabled={userData.hapticEnabled}
+                                                                    />
+                                                                ) : (
+                                                                    <div className="flex flex-col gap-2">
+                                                                        <div className="flex gap-2">
+                                                                            <button onClick={() => setActiveTimerSessionId(session.id)} className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl flex items-center justify-center gap-2 font-bold text-sm shadow-md transition-all active:scale-95">
+                                                                                <Play size={16} className="fill-white"/> Chrono Simple
+                                                                            </button>
+                                                                            <button onClick={() => setActiveGPSId(session.id)} className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl flex items-center justify-center gap-2 font-bold text-sm shadow-md transition-all active:scale-95">
+                                                                                <MapPin size={16}/> Mode GPS
+                                                                            </button>
+                                                                        </div>
+                                                                        <div className="flex gap-2">
+                                                                            <button onClick={() => downloadWorkoutZWO(session)} className="flex-1 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-xl flex items-center justify-center gap-1.5 font-bold text-xs shadow-sm transition-all active:scale-95">
+                                                                                <Download size={14}/> Zwift (.zwo)
+                                                                            </button>
+                                                                            <button onClick={() => downloadWorkoutTCX(session)} className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl flex items-center justify-center gap-1.5 font-bold text-xs shadow-sm transition-all active:scale-95">
+                                                                                <Download size={14}/> Garmin (.tcx)
+                                                                            </button>
+                                                                            <button onClick={() => downloadWorkoutJSON(session)} className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl flex items-center justify-center gap-1.5 font-bold text-xs shadow-sm transition-all active:scale-95">
+                                                                                <Download size={14}/> WOD (.json)
+                                                                            </button>
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        )}
+        
+                                                        {/* STRENGTH TIMER LOGIC */}
+                                                        {session.category !== 'run' && (
+                                                            activeTimerSessionId === session.id ? (
+                                                                <LiveSessionTimer 
+                                                                    timerRef={currentTimerRef}
+                                                                    onFinish={(duration) => handleTimerFinish(session.id, duration)} 
+                                                                    hapticEnabled={userData.hapticEnabled}
+                                                                />
+                                                            ) : (
+                                                                <button onClick={() => setActiveTimerSessionId(session.id)} className="w-full mb-4 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl flex items-center justify-center gap-2 font-bold text-sm shadow-md transition-all active:scale-95">
+                                                                    <Play size={16} className="fill-white"/> Démarrer le Chrono
+                                                                </button>
+                                                            )
+                                                        )}
+        
+                                                        <h4 className="text-[10px] font-bold uppercase text-slate-400 mb-2">Protocole Scientifique (Cliquer pour info)</h4>
+                                                        <div className="space-y-2">
+                                                            {session.exercises.map((exo: any, idx: number) => {
+                                                                const uniqueExerciseId = `${session.id}-ex-${idx}`;
+                                                                const isChecked = completedExercises.has(uniqueExerciseId);
+                                                                const isSwapSelected = exerciseSwapSelection && exerciseSwapSelection.sessionId === session.id && exerciseSwapSelection.exIdx === idx;
+                                                                return (
+                                                                    <div key={idx} className={`bg-white dark:bg-slate-800 p-2 rounded border transition-colors flex items-center gap-3 ${isChecked ? 'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20' : isSwapSelected ? 'border-indigo-500 bg-indigo-50 ring-1 ring-indigo-500 animate-pulse' : 'border-slate-200 dark:border-slate-700 hover:border-indigo-200 hover:bg-indigo-50 dark:hover:bg-slate-700'} ${exerciseSwapSelection && !isSwapSelected ? 'cursor-pointer hover:bg-slate-100' : ''}`} onClick={() => { if (exerciseSwapSelection) handleExerciseSwapRequest(currentWeek.weekNumber, session.id, idx); }}>
+                                                                            <div onClick={(e) => { e.stopPropagation(); handleExerciseSwapRequest(currentWeek.weekNumber, session.id, idx); }} className={`p-1 rounded-md transition-colors cursor-pointer ${isSwapSelected ? 'bg-indigo-200 text-indigo-700' : 'bg-slate-100 dark:bg-slate-700 text-slate-300 hover:text-indigo-500 hover:bg-indigo-50'}`} title="Déplacer cet exercice">
+                                                                                <ArrowRight size={14} />
+                                                                            </div>
+                                                                            <div onClick={(e) => { e.stopPropagation(); handleDeleteExercise(currentWeek.weekNumber, session.id, idx); }} className="p-1 rounded-md transition-colors cursor-pointer bg-slate-100 dark:bg-slate-700 text-slate-300 hover:text-rose-500 hover:bg-rose-50" title="Supprimer cet exercice">
+                                                                                <Trash2 size={14} />
+                                                                            </div>
+                                                                            {session.category !== 'run' && (
+                                                                            <div onClick={(e) => { e.stopPropagation(); toggleExercise(uniqueExerciseId); }} className="cursor-pointer">
+                                                                                {isChecked ? <Check size={20} className="text-green-500" /> : <Square size={20} className="text-slate-300 hover:text-indigo-400" />}
+                                                                            </div>
+                                                                            )}
+                                                                            <div className="flex-1 flex justify-between items-center cursor-help" onClick={() => setModalExercise({data: exo, id: session.id, category: session.category, index: idx})}>
+                                                                                <div className="flex items-center gap-2">
+                                                                                    <Info size={14} className="text-slate-300"/>
+                                                                                    <div className={isChecked ? 'opacity-50' : ''}>
+                                                                                        <div className="font-bold text-xs text-slate-800 dark:text-white">{exo.name}</div>
+                                                                                        <div className="text-[10px] text-slate-500 dark:text-slate-400">{exo.sets.toString().includes('min') || exo.sets.toString().includes('bloc') ? exo.sets : `${exo.sets} séries`} • {exo.reps.includes('reps') ? exo.reps : `${exo.reps}`} {exo.rest !== '-' ? `• R: ${exo.rest}` : ''}</div>
+                                                                                    </div>
+                                                                                </div>
+                                                                                <div className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${isChecked ? 'bg-green-100 text-green-700' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}`}>RPE {exo.rpe}</div>
+                                                                            </div>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                        <button onClick={() => setCatalogSessionId(session.id)} className="w-full mt-2 py-2 border border-dashed border-indigo-200 text-indigo-500 rounded-lg text-xs font-bold hover:bg-indigo-50 hover:border-indigo-300 transition flex items-center justify-center gap-1">
+                                                            <Plus size={14}/> Ajouter un exercice
+                                                        </button>
+        
+                                                        { (session.category === 'run' || isSessionFullyDone) && (
+                                                            <button 
+                                                                onClick={(e) => { 
+                                                                    e.stopPropagation();
+                                                                    if (activeTimerSessionId === session.id) {
+                                                                        handleTimerFinish(session.id, currentTimerRef.current);
+                                                                    } else {
+                                                                        const theoreticalTime = (typeof session.durationMin === 'number' ? session.durationMin : 45) * 60;
+                                                                        handleTimerFinish(session.id, theoreticalTime);
+                                                                    }
+                                                                }} 
+                                                                className="mt-3 w-full py-2 bg-green-500 text-white rounded font-bold text-xs flex items-center justify-center gap-1 animate-in fade-in slide-in-from-bottom-2 hover:bg-green-600 transition"
+                                                            >
+                                                                <CheckCircle size={12} /> {session.category === 'run' ? "Terminer la séance" : "Valider toute la séance"}
+                                                            </button>
+                                                        )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })
+                            )}
+                        </div>
+                        
+                        {allSessionsCompleted && (
+                            <div className="p-4 border border-green-200 dark:border-green-900 bg-green-50 dark:bg-green-900/30 rounded-2xl flex flex-col gap-3 animate-in slide-in-from-bottom-2">
+                                <div className="flex items-center gap-2 text-green-800 dark:text-green-300 text-sm font-bold"><Award size={18}/> Semaine Terminée ! Bilan ?</div>
+                                <div className="flex gap-2">
+                                    <button onClick={() => adaptDifficulty(currentWeek.weekNumber, 'easier')} className="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-white dark:bg-slate-700 border border-green-200 dark:border-green-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-bold shadow-sm hover:bg-slate-50 transition"><ThumbsDown size={14}/> Trop dur</button>
+                                    <button onClick={() => adaptDifficulty(currentWeek.weekNumber, 'keep')} className="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-green-600 border border-green-600 text-white rounded-xl text-xs font-bold shadow-sm hover:bg-green-700 transition"><CheckCircle size={14}/> Parfait</button>
+                                    <button onClick={() => adaptDifficulty(currentWeek.weekNumber, 'harder')} className="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-white dark:bg-slate-700 border border-green-200 dark:border-green-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-bold shadow-sm hover:bg-slate-50 transition"><Flame size={14}/> Trop facile</button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 );
-            })}
+            })()}
           </div>
         ) : activeTab === 'nutrition' ? (
              <NutritionView userData={userData} setUserData={setUserData} nutritionLog={nutritionLog} setNutritionLog={setNutritionLog} showFoodSearch={showFoodSearch} setShowFoodSearch={setShowFoodSearch} setShowDataModal={setShowDataModal} />
@@ -1246,6 +1348,43 @@ export default function App() {
         )}
 
       </main>
+
+      {/* Mobile Bottom Navigation */}
+      {step === 'plan' && (
+        <div className="sm:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 z-50 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] dark:shadow-[0_-4px_20px_rgba(0,0,0,0.2)]" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+            <div className="flex justify-around items-center h-16 px-2">
+                <button 
+                    onClick={() => setActiveTab('profile')} 
+                    className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors active:scale-95 ${activeTab === 'profile' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
+                >
+                    <User size={20} className={activeTab === 'profile' ? 'fill-indigo-100 dark:fill-indigo-900/50' : ''} />
+                    <span className="text-[10px] font-bold">Profil</span>
+                </button>
+                <button 
+                    onClick={() => setActiveTab('plan')} 
+                    className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors active:scale-95 ${activeTab === 'plan' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
+                >
+                    <Calendar size={20} className={activeTab === 'plan' ? 'fill-indigo-100 dark:fill-indigo-900/50' : ''} />
+                    <span className="text-[10px] font-bold">Plan</span>
+                </button>
+                <button 
+                    onClick={() => setActiveTab('stats')} 
+                    className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors active:scale-95 ${activeTab === 'stats' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
+                >
+                    <BarChart3 size={20} className={activeTab === 'stats' ? 'fill-indigo-100 dark:fill-indigo-900/50' : ''} />
+                    <span className="text-[10px] font-bold">Science</span>
+                </button>
+                <button 
+                    onClick={() => setActiveTab('nutrition')} 
+                    className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors active:scale-95 ${activeTab === 'nutrition' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
+                >
+                    <Utensils size={20} className={activeTab === 'nutrition' ? 'fill-indigo-100 dark:fill-indigo-900/50' : ''} />
+                    <span className="text-[10px] font-bold">Nutri</span>
+                </button>
+            </div>
+        </div>
+      )}
+
       </div>
     </div>
     </div>
