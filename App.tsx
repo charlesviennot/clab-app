@@ -34,6 +34,8 @@ export default function App() {
       extraRunSessions: 0, 
       extraStrengthSessions: 0, 
       strengthFocus: 'hypertrophy', 
+      trainingMethod: 'polarized',
+      availableDays: [0, 1, 2, 3, 4, 5, 6],
       durationWeeks: 10, 
       progressionStart: 15, 
       difficultyFactor: 1.0, 
@@ -234,7 +236,7 @@ export default function App() {
   const handleAddExercise = (exercise: any) => { if (!catalogSessionId) return; const newPlan = plan.map(week => ({ ...week, sessions: week.sessions.map((sess: any) => { if (sess.id === catalogSessionId) { return { ...sess, exercises: [...(sess.exercises || []), { ...exercise, sets: 3, reps: '10' }] }; } return sess; }) })); setPlan(newPlan); setCatalogSessionId(null); };
   const handleDeleteExercise = (weekIdx: number, sessionId: string, exIdx: number) => { const newPlan = plan.map(week => { if (week.weekNumber !== weekIdx) return week; const newSessions = week.sessions.map((session: any) => { if (session.id !== sessionId) return session; const newExercises = session.exercises.filter((_: any, i: number) => i !== exIdx); return { ...session, exercises: newExercises }; }); return { ...week, sessions: newSessions }; }); setPlan(newPlan); };
   
-  const resetWeekOrder = (weekNumber: number) => { const newPlan = plan.map((week) => { if (week.weekNumber !== weekNumber) return week; const originalSessions = week.sessions; const defaultSchedule = getRecommendedSchedule(originalSessions, userData.targetDistance === 'hyrox'); return { ...week, schedule: defaultSchedule }; }); setPlan(newPlan); };
+  const resetWeekOrder = (weekNumber: number) => { const newPlan = plan.map((week) => { if (week.weekNumber !== weekNumber) return week; const originalSessions = week.sessions; const defaultSchedule = getRecommendedSchedule(originalSessions, userData); return { ...week, schedule: defaultSchedule }; }); setPlan(newPlan); };
   const resetWeekProgress = (week: any) => { const newCompletedSessions = new Set(completedSessions); const newCompletedExercises = new Set(completedExercises); week.sessions.forEach((session: any) => { if (newCompletedSessions.has(session.id)) { newCompletedSessions.delete(session.id); } if (session.exercises) { session.exercises.forEach((_: any, idx: number) => { const exId = `${session.id}-ex-${idx}`; if (newCompletedExercises.has(exId)) { newCompletedExercises.delete(exId); } }); } }); setCompletedSessions(newCompletedSessions); setCompletedExercises(newCompletedExercises); };
   
   const stats = useMemo(() => { 
@@ -394,13 +396,35 @@ export default function App() {
             if (userData.runDaysPerWeek >= 2) { 
                 let sessionType = ""; 
                 let sessionExo: any[] = []; 
-                if (targetDistance === '5k') { sessionType = "VMA Courte"; sessionExo = RUN_PROTOCOLS.interval_short; } 
-                else if (targetDistance === '10k') { const cycle = i % 4; if (cycle === 1) { sessionType = "VMA Courte"; sessionExo = RUN_PROTOCOLS.interval_short; } else if (cycle === 2) { sessionType = "Seuil Anaérobie"; sessionExo = RUN_PROTOCOLS.threshold; } else if (cycle === 3) { sessionType = "Côtes / Force"; sessionExo = RUN_PROTOCOLS.hills; } else { sessionType = "VMA Longue"; sessionExo = RUN_PROTOCOLS.interval_long; } } 
-                else if (targetDistance === '21k') { sessionType = "Seuil Long"; sessionExo = RUN_PROTOCOLS.threshold; } 
-                else if (targetDistance === 'vo2max') { sessionType = (i%2===0) ? "VMA Courte" : "VMA Longue"; sessionExo = (i%2===0) ? RUN_PROTOCOLS.interval_short : RUN_PROTOCOLS.interval_long; }
-                else if (targetDistance === 'calories') { sessionType = "Seuil Anaérobie"; sessionExo = RUN_PROTOCOLS.threshold; }
-                else { sessionType = (i%2===0) ? "Allure Marathon" : "Seuil"; sessionExo = (i%2===0) ? RUN_PROTOCOLS.long_run : RUN_PROTOCOLS.threshold; } 
-                sessions.push({ id: `w${i}-r2`, day: "RUN 2", category: 'run', type: sessionType, structure: 'interval', intensity: 'high', duration: "60 min", durationMin: 60, distance: "Varié", paceTarget: paces.interval, paceGap: paces.gap, rpe: 8, description: `Séance clé pour ${targetDistance}.`, scienceNote: "Développement moteur.", planningAdvice: "Fraîcheur requise.", exercises: sessionExo }); 
+                let intensity = 'high';
+                
+                if (userData.trainingMethod === 'polarized') {
+                    sessionType = (i % 2 === 0) ? "VMA Courte" : "VMA Longue"; 
+                    sessionExo = (i % 2 === 0) ? RUN_PROTOCOLS.interval_short : RUN_PROTOCOLS.interval_long;
+                } else if (userData.trainingMethod === 'pyramidal') {
+                    if (targetDistance === '5k' || targetDistance === '10k') {
+                        sessionType = (i % 3 === 0) ? "VMA Courte" : "Seuil Anaérobie";
+                        sessionExo = (i % 3 === 0) ? RUN_PROTOCOLS.interval_short : RUN_PROTOCOLS.threshold;
+                        intensity = (i % 3 === 0) ? 'high' : 'medium';
+                    } else {
+                        sessionType = (i % 3 === 0) ? "VMA Longue" : "Seuil Long";
+                        sessionExo = (i % 3 === 0) ? RUN_PROTOCOLS.interval_long : RUN_PROTOCOLS.threshold;
+                        intensity = (i % 3 === 0) ? 'high' : 'medium';
+                    }
+                } else if (userData.trainingMethod === 'threshold') {
+                    sessionType = "Seuil Anaérobie";
+                    sessionExo = RUN_PROTOCOLS.threshold;
+                    intensity = 'medium';
+                } else {
+                    if (targetDistance === '5k') { sessionType = "VMA Courte"; sessionExo = RUN_PROTOCOLS.interval_short; } 
+                    else if (targetDistance === '10k') { const cycle = i % 4; if (cycle === 1) { sessionType = "VMA Courte"; sessionExo = RUN_PROTOCOLS.interval_short; } else if (cycle === 2) { sessionType = "Seuil Anaérobie"; sessionExo = RUN_PROTOCOLS.threshold; } else if (cycle === 3) { sessionType = "Côtes / Force"; sessionExo = RUN_PROTOCOLS.hills; } else { sessionType = "VMA Longue"; sessionExo = RUN_PROTOCOLS.interval_long; } } 
+                    else if (targetDistance === '21k') { sessionType = "Seuil Long"; sessionExo = RUN_PROTOCOLS.threshold; } 
+                    else if (targetDistance === 'vo2max') { sessionType = (i%2===0) ? "VMA Courte" : "VMA Longue"; sessionExo = (i%2===0) ? RUN_PROTOCOLS.interval_short : RUN_PROTOCOLS.interval_long; }
+                    else if (targetDistance === 'calories') { sessionType = "Seuil Anaérobie"; sessionExo = RUN_PROTOCOLS.threshold; }
+                    else { sessionType = (i%2===0) ? "Allure Marathon" : "Seuil"; sessionExo = (i%2===0) ? RUN_PROTOCOLS.long_run : RUN_PROTOCOLS.threshold; } 
+                }
+                
+                sessions.push({ id: `w${i}-r2`, day: "RUN 2", category: 'run', type: sessionType, structure: 'interval', intensity: intensity, duration: "60 min", durationMin: 60, distance: "Varié", paceTarget: paces.interval, paceGap: paces.gap, rpe: intensity === 'high' ? 8 : 7, description: `Séance clé pour ${targetDistance} (${userData.trainingMethod}).`, scienceNote: "Développement spécifique.", planningAdvice: "Fraîcheur requise.", exercises: sessionExo }); 
             } 
             
             if (userData.runDaysPerWeek >= 3) { 
@@ -415,23 +439,39 @@ export default function App() {
             }
             
             if (userData.runDaysPerWeek >= 4) {
+                 let r4Type = "Récupération Active";
+                 let r4Intensity = 'low';
+                 let r4Exo = RUN_PROTOCOLS.recovery;
+                 let r4Rpe = 2;
+                 
+                 if (userData.trainingMethod === 'pyramidal' && targetDistance !== '42k') {
+                     r4Type = "Endurance Active (Zone 2 haute)";
+                     r4Exo = RUN_PROTOCOLS.steady;
+                     r4Rpe = 3;
+                 } else if (userData.trainingMethod === 'threshold') {
+                     r4Type = "Rappels d'allure";
+                     r4Intensity = 'medium';
+                     r4Exo = RUN_PROTOCOLS.steady;
+                     r4Rpe = 5;
+                 }
+                 
                  sessions.push({ 
                      id: `w${i}-r4`, 
                      day: "RUN 4", 
                      category: 'run', 
-                     type: "Récupération Active", 
+                     type: r4Type, 
                      structure: 'steady', 
-                     intensity: 'low', 
+                     intensity: r4Intensity, 
                      duration: "30 min", 
                      durationMin: 30, 
                      distance: calcDist(30, paces.valEasy), 
                      paceTarget: paces.easyRange, 
                      paceGap: paces.gap, 
-                     rpe: 2, 
+                     rpe: r4Rpe, 
                      description: "Footing très lent pour assimiler le travail.", 
                      scienceNote: "Flux sanguin.", 
                      planningAdvice: "Le lendemain de la sortie longue ou de la VMA.", 
-                     exercises: RUN_PROTOCOLS.recovery 
+                     exercises: r4Exo 
                  });
             }
             
@@ -442,7 +482,7 @@ export default function App() {
                 sessions.push({ id: `w${i}-s${s}`, day: `GYM ${s}`, category: 'strength', type: gymType, structure: 'pyramid', intensity: 'high', duration: "45-60 min", durationMin: 60, paceTarget: "N/A", paceGap: 0, rpe: 8, description: `Séance ${gymType}.`, scienceNote: "Renforcement.", planningAdvice: gymAdvice, exercises: exercises, tags: gymTags }); 
             } 
         } 
-        const weeklySchedule = getRecommendedSchedule(sessions, targetDistance === 'hyrox'); 
+        const weeklySchedule = getRecommendedSchedule(sessions, userData); 
         newPlan.push({ weekNumber: i, focus, volumeLabel, sessions, schedule: weeklySchedule }); 
     } 
     setPlan(newPlan); setStep('result'); 
@@ -853,6 +893,40 @@ export default function App() {
                     </div>
                 </div>
             )}
+
+            <div className="space-y-3">
+                <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2"><Brain size={14}/> Méthode d'entraînement</label>
+                <div className="grid grid-cols-3 gap-2 bg-slate-50 p-2 rounded-xl border border-slate-200">
+                    <button onClick={() => setUserData({...userData, trainingMethod: 'polarized'})} className={`py-2 px-1 rounded-lg text-[10px] font-bold flex flex-col items-center gap-1 transition ${userData.trainingMethod === 'polarized' ? 'bg-white shadow-md text-indigo-600 border border-indigo-100' : 'text-slate-400 hover:bg-white/50'}`}><span>Polarisé (80/20)</span><span className="opacity-70">Optimal</span></button>
+                    <button onClick={() => setUserData({...userData, trainingMethod: 'pyramidal'})} className={`py-2 px-1 rounded-lg text-[10px] font-bold flex flex-col items-center gap-1 transition ${userData.trainingMethod === 'pyramidal' ? 'bg-white shadow-md text-indigo-600 border border-indigo-100' : 'text-slate-400 hover:bg-white/50'}`}><span>Pyramidal</span><span className="opacity-70">Progressif</span></button>
+                    <button onClick={() => setUserData({...userData, trainingMethod: 'threshold'})} className={`py-2 px-1 rounded-lg text-[10px] font-bold flex flex-col items-center gap-1 transition ${userData.trainingMethod === 'threshold' ? 'bg-white shadow-md text-indigo-600 border border-indigo-100' : 'text-slate-400 hover:bg-white/50'}`}><span>Au Seuil</span><span className="opacity-70">Intense</span></button>
+                </div>
+            </div>
+
+            <div className="space-y-3">
+                <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2"><Calendar size={14}/> Jours disponibles</label>
+                <div className="flex gap-2">
+                    {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((day, idx) => {
+                        const isSelected = userData.availableDays.includes(idx);
+                        return (
+                            <button 
+                                key={idx} 
+                                onClick={() => {
+                                    const newDays = isSelected 
+                                        ? userData.availableDays.filter((d: number) => d !== idx)
+                                        : [...userData.availableDays, idx].sort();
+                                    // Prevent selecting 0 days
+                                    if (newDays.length > 0) setUserData({...userData, availableDays: newDays});
+                                }} 
+                                className={`flex-1 py-3 rounded-xl text-sm font-bold transition ${isSelected ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' : 'bg-white border border-slate-200 text-slate-400 hover:border-indigo-300'}`}
+                            >
+                                {day}
+                            </button>
+                        );
+                    })}
+                </div>
+                <p className="text-[10px] text-slate-400 text-center">L'algorithme répartira vos séances sur ces jours.</p>
+            </div>
 
             <button 
                 onClick={generatePlan} 

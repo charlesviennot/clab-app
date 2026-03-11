@@ -1,153 +1,116 @@
 import { formatStopwatch, getMuscleActivation, BODY_PATHS } from './helpers';
 
-export const getRecommendedSchedule = (sessions: any[], isHyrox = false, targetDistance = '') => {
+export const getRecommendedSchedule = (sessions: any[], userData: any) => {
     const scheduleData = Array(7).fill(null).map((_, i) => ({
         dayName: ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"][i],
         sessions: [] as any[],
         focus: ""
     }));
 
-    if (isHyrox) {
-        // --- LOGIQUE HYROX ---
-        const hyroxSessions = sessions.filter(s => s.category === 'hyrox');
-        const strengthSessions = sessions.filter(s => s.category === 'strength');
-        const runSessions = sessions.filter(s => s.category === 'run');
+    const availableDays = userData?.availableDays?.length > 0 ? userData.availableDays : [0, 1, 2, 3, 4, 5, 6];
+    const method = userData?.trainingMethod || 'polarized';
 
-        const hyroxDays = [1, 3, 5, 0, 2, 4, 6]; 
-        hyroxSessions.forEach((s, i) => {
-            const day = hyroxDays[i % 7];
-            scheduleData[day].sessions.push(s);
-            scheduleData[day].focus = "HYROX WOD";
-        });
+    // Sort sessions by priority (Hardest/Longest first)
+    const sortedSessions = [...sessions].sort((a, b) => {
+        const scoreA = (a.intensity === 'high' ? 100 : a.intensity === 'medium' ? 50 : 0) + (a.durationMin || 0);
+        const scoreB = (b.intensity === 'high' ? 100 : b.intensity === 'medium' ? 50 : 0) + (b.durationMin || 0);
+        return scoreB - scoreA;
+    });
 
-        const strengthDays = [0, 4, 2, 6, 1, 3, 5];
-        let strIdx = 0;
-        strengthDays.forEach(day => {
-            if (strIdx < strengthSessions.length && scheduleData[day].sessions.length === 0) {
-                scheduleData[day].sessions.push(strengthSessions[strIdx]);
-                scheduleData[day].focus = "Renfo Pur";
-                strIdx++;
+    const placeSession = (session: any) => {
+        let bestDay = -1;
+        let minScore = Infinity;
+
+        // Force Long Runs to the last available day (usually the weekend)
+        if (session.type.includes("Sortie Longue") || (session.type.includes("Endurance") && session.durationMin >= 60 && !session.type.includes("Fondamentale"))) {
+            const weekendDays = availableDays.filter((d: number) => d === 5 || d === 6);
+            if (weekendDays.length > 0) {
+                bestDay = weekendDays[weekendDays.length - 1]; // Prefer Sunday
+            } else {
+                bestDay = availableDays[availableDays.length - 1];
             }
-        });
-
-        const runDays = [2, 6, 0, 4, 1, 3, 5];
-        let runIdx = 0;
-        runDays.forEach(day => {
-            if (runIdx < runSessions.length) {
-                if (scheduleData[day].sessions.length === 0) {
-                    scheduleData[day].sessions.push(runSessions[runIdx]);
-                    scheduleData[day].focus = "Endurance";
-                    runIdx++;
-                } 
-                else if (scheduleData[day].sessions.length === 1 && scheduleData[day].sessions[0].category === 'strength') {
-                    scheduleData[day].sessions.push(runSessions[runIdx]);
-                    runIdx++;
-                }
+            
+            // If the best day already has a long run, we should still evaluate other days
+            if (scheduleData[bestDay].sessions.some(s => s.type.includes("Sortie Longue"))) {
+                bestDay = -1; 
             }
-        });
+        }
 
-    } else if (['hypertrophy', 'health', 'weight_loss', 'hybrid_lifestyle'].includes(targetDistance)) {
-        // --- LOGIQUE LIFESTYLE ---
-        const strengthSessions = sessions.filter(s => s.category === 'strength');
-        const runSessions = sessions.filter(s => s.category === 'run');
+        if (bestDay === -1) {
+            // Score each available day to find the optimal placement
+            for (const day of availableDays) {
+                const daySessions = scheduleData[day].sessions;
+                
+                let dayScore = 0;
+                let hasHighIntensity = false;
+                let hasStrength = false;
+                let hasRun = false;
 
-        // Distribution logic for any number of sessions
-        const distributeSessions = (sSessions: any[], rSessions: any[]) => {
-            let sIdx = 0;
-            let rIdx = 0;
-
-            // Try to spread strength sessions
-            const sDays = [0, 2, 4, 1, 3, 5, 6];
-            sDays.forEach(day => {
-                if (sIdx < sSessions.length) {
-                    scheduleData[day].sessions.push(sSessions[sIdx]);
-                    scheduleData[day].focus = sSessions[sIdx].day;
-                    sIdx++;
-                }
-            });
-
-            // Try to spread run sessions, avoiding same day as strength if possible, or combining if necessary
-            const rDays = [1, 3, 5, 0, 2, 4, 6];
-            rDays.forEach(day => {
-                if (rIdx < rSessions.length) {
-                    scheduleData[day].sessions.push(rSessions[rIdx]);
-                    if (!scheduleData[day].focus) {
-                        scheduleData[day].focus = rSessions[rIdx].day;
-                    } else {
-                        scheduleData[day].focus += " + " + rSessions[rIdx].day;
+                daySessions.forEach(s => {
+                    dayScore += s.durationMin || 0;
+                    if (s.intensity === 'high') {
+                        dayScore += 200; // Heavy penalty for multiple high intensity
+                        hasHighIntensity = true;
                     }
-                    rIdx++;
+                    if (s.category === 'strength') hasStrength = true;
+                    if (s.category === 'run') hasRun = true;
+                });
+
+                // Interference penalties
+                if (session.category === 'run' && hasStrength) dayScore += 80;
+                if (session.category === 'strength' && hasRun) dayScore += 80;
+                if (session.intensity === 'high' && hasHighIntensity) dayScore += 1000; // Strongly avoid double high intensity
+
+                // Method specific logic
+                if (method === 'polarized') {
+                    // Polarized: strictly separate high intensity from everything else
+                    if (session.intensity === 'high' && daySessions.length > 0) dayScore += 300;
+                } else if (method === 'pyramidal') {
+                    // Pyramidal: more tolerant to medium/high mixing, but still penalize
+                    if (session.intensity === 'high' && daySessions.length > 0) dayScore += 100;
+                } else if (method === 'threshold') {
+                    // Threshold: tolerant to back-to-back medium/hard
+                    if (session.intensity === 'high' && daySessions.length > 0) dayScore += 50;
                 }
-            });
 
-            // If there are still sessions left (e.g., > 7 total sessions of one type), distribute them evenly
-            while (sIdx < sSessions.length) {
-                const day = sIdx % 7;
-                scheduleData[day].sessions.push(sSessions[sIdx]);
-                scheduleData[day].focus += " + " + sSessions[sIdx].day;
-                sIdx++;
-            }
-            while (rIdx < rSessions.length) {
-                const day = rIdx % 7;
-                scheduleData[day].sessions.push(rSessions[rIdx]);
-                scheduleData[day].focus += " + " + rSessions[rIdx].day;
-                rIdx++;
-            }
-        };
+                // Check previous and next days for high intensity to avoid back-to-back hard days
+                const prevDay = (day - 1 + 7) % 7;
+                const nextDay = (day + 1) % 7;
+                const prevHasHigh = scheduleData[prevDay].sessions.some(s => s.intensity === 'high');
+                const nextHasHigh = scheduleData[nextDay].sessions.some(s => s.intensity === 'high');
+                
+                if (session.intensity === 'high' && (prevHasHigh || nextHasHigh)) {
+                    dayScore += 150; // Penalty for back-to-back hard days
+                }
 
-        distributeSessions(strengthSessions, runSessions);
-
-    } else {
-        // --- LOGIQUE RUNNING CLASSIQUE ---
-        const runs = sessions.filter(s => s.category === 'run');
-        const gyms = sessions.filter(s => s.category === 'strength');
-
-        const longRun = runs.find(r => r.type.includes("Sortie Longue") || r.type.includes("Endurance"));
-        if (longRun) {
-            scheduleData[6].sessions.push(longRun);
-            scheduleData[6].focus = "Volume";
-        }
-
-        const qualityRun = runs.find(r => (r.intensity === 'high' || r.intensity === 'medium') && r.id !== longRun?.id);
-        if (qualityRun) {
-            scheduleData[1].sessions.push(qualityRun);
-            scheduleData[1].focus = "Intensité";
-        }
-
-        const heavySession = gyms.find(g => g.type.includes("Sled") || g.type.includes("Jambes") || g.type.includes("Legs"));
-        const otherGyms = gyms.filter(g => g.id !== heavySession?.id);
-
-        if (heavySession) {
-            if (scheduleData[4].sessions.length === 0) {
-                scheduleData[4].sessions.push(heavySession);
-                scheduleData[4].focus = "Force";
-            } else if (scheduleData[3].sessions.length === 0) {
-                scheduleData[3].sessions.push(heavySession);
-                scheduleData[3].focus = "Force";
+                if (dayScore < minScore) {
+                    minScore = dayScore;
+                    bestDay = day;
+                }
             }
         }
 
-        let gymIdx = 0;
-        const fillOrder = [0, 2, 3, 5]; 
-        
-        fillOrder.forEach(dayIdx => {
-            if (scheduleData[dayIdx].sessions.length === 0 && gymIdx < otherGyms.length) {
-                scheduleData[dayIdx].sessions.push(otherGyms[gymIdx]);
-                scheduleData[dayIdx].focus = "Renfo"; 
-                gymIdx++;
+        if (bestDay !== -1) {
+            scheduleData[bestDay].sessions.push(session);
+            
+            // Update focus dynamically
+            if (!scheduleData[bestDay].focus) {
+                if (session.intensity === 'high') scheduleData[bestDay].focus = "Intensité";
+                else if (session.type.includes("Sortie Longue")) scheduleData[bestDay].focus = "Volume";
+                else if (session.category === 'strength') scheduleData[bestDay].focus = "Renfo";
+                else if (session.category === 'hyrox') scheduleData[bestDay].focus = "Hyrox";
+                else scheduleData[bestDay].focus = "Endurance";
+            } else {
+                if (session.category !== scheduleData[bestDay].sessions[0].category) {
+                    scheduleData[bestDay].focus = "Hybride";
+                } else {
+                    scheduleData[bestDay].focus += " +";
+                }
             }
-        });
+        }
+    };
 
-        const easyRuns = runs.filter(r => r.id !== longRun?.id && r.id !== qualityRun?.id);
-        let runIdx = 0;
-        [3, 5, 0].forEach(dayIdx => {
-            if (scheduleData[dayIdx].sessions.length === 0 && runIdx < easyRuns.length) {
-                scheduleData[dayIdx].sessions.push(easyRuns[runIdx]);
-                scheduleData[dayIdx].focus = "Endurance";
-                runIdx++;
-            }
-        });
-    }
+    sortedSessions.forEach(placeSession);
 
     return scheduleData.map(d => ({
         day: d.dayName,

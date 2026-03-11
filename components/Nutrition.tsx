@@ -228,7 +228,7 @@ export const NutritionView = ({ userData, setUserData, nutritionLog, setNutritio
     return (
         <>
             {/* MAIN CONTENT inside animated div */}
-            <div className="space-y-6 animate-in slide-in-from-right-4 pb-24">
+            <div className="space-y-6 pb-24">
                 
                 {/* HYDRATATION CARD */}
                 <div className="bg-gradient-to-r from-cyan-500 to-blue-600 rounded-3xl p-6 text-white shadow-lg relative overflow-hidden">
@@ -381,15 +381,23 @@ export const NutritionView = ({ userData, setUserData, nutritionLog, setNutritio
 
             {/* BARCODE SCANNER MODAL */}
             {showScanner && (
-                <div className="fixed inset-0 z-[10000] bg-black flex flex-col items-center justify-center">
-                    <div className="w-full max-w-md h-full flex flex-col relative">
-                        <button onClick={() => setShowScanner(false)} className="absolute top-6 right-6 z-50 bg-white/20 p-2 rounded-full text-white backdrop-blur-md">
+                <div className="fixed inset-0 z-[10000] bg-black flex flex-col items-center justify-center animate-in fade-in duration-200">
+                    <div className="w-full max-w-md h-full flex flex-col relative animate-in slide-in-from-bottom-4 duration-300">
+                        <button onClick={() => setShowScanner(false)} className="absolute top-6 right-6 z-50 bg-white/20 p-2 rounded-full text-white backdrop-blur-md hover:bg-white/30 transition-colors">
                             <X size={24}/>
                         </button>
-                        <div className="flex-1 flex items-center justify-center bg-black">
-                             <Scanner onScan={handleScan} />
+                        <div className="flex-1 w-full h-full relative bg-black flex items-center justify-center overflow-hidden">
+                             <div className="absolute inset-0">
+                                 <Scanner 
+                                    onScan={handleScan} 
+                                    styles={{ 
+                                        container: { width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+                                        video: { objectFit: 'cover' }
+                                    }} 
+                                 />
+                             </div>
                         </div>
-                        <div className="p-6 text-center text-white bg-black/80 backdrop-blur-md absolute bottom-0 w-full">
+                        <div className="p-6 text-center text-white bg-black/80 backdrop-blur-md absolute bottom-0 w-full z-50">
                             <p className="font-bold">Scannez un code-barres</p>
                             <p className="text-xs text-white/60 mt-1">Placez le code dans le cadre</p>
                         </div>
@@ -399,8 +407,8 @@ export const NutritionView = ({ userData, setUserData, nutritionLog, setNutritio
 
             {/* FOOD SEARCH MODAL - OUTSIDE of animated div to prevent stacking context clipping */}
             {showFoodSearch && (
-                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/95 backdrop-blur-md animate-in fade-in top-0 left-0 w-full h-full">
-                    <div className="bg-white dark:bg-slate-800 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95">
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/95 backdrop-blur-md animate-in fade-in duration-300 top-0 left-0 w-full h-full">
+                    <div className="bg-white dark:bg-slate-800 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-300">
                         
                         {selectedFood ? (
                             // QUANTITY SELECTION VIEW
