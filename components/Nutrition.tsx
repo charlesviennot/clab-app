@@ -381,12 +381,18 @@ export const NutritionView = ({ userData, setUserData, nutritionLog, setNutritio
 
             {/* BARCODE SCANNER MODAL */}
             {showScanner && (
-                <div className="fixed inset-0 z-[10000] bg-black flex flex-col items-center justify-center animate-in fade-in duration-200">
-                    <div className="w-full max-w-md h-full flex flex-col relative animate-in slide-in-from-bottom-4 duration-300">
-                        <button onClick={() => setShowScanner(false)} className="absolute top-6 right-6 z-50 bg-white/20 p-2 rounded-full text-white backdrop-blur-md hover:bg-white/30 transition-colors">
-                            <X size={24}/>
+                <div className="fixed inset-0 z-[10000] bg-black/90 backdrop-blur-sm flex flex-col items-center justify-center animate-in fade-in duration-200 p-4">
+                    <div className="w-full max-w-sm bg-slate-900 rounded-3xl overflow-hidden shadow-2xl relative animate-in zoom-in-95 duration-300 border border-slate-800">
+                        <button onClick={() => setShowScanner(false)} className="absolute top-4 right-4 z-50 bg-black/50 p-2 rounded-full text-white backdrop-blur-md hover:bg-black/70 transition-colors">
+                            <X size={20}/>
                         </button>
-                        <div className="flex-1 w-full h-full relative bg-black flex items-center justify-center overflow-hidden">
+                        
+                        <div className="p-6 text-center text-white border-b border-slate-800">
+                            <p className="font-bold text-lg">Scannez un code-barres</p>
+                            <p className="text-xs text-slate-400 mt-1">Placez le code dans le cadre</p>
+                        </div>
+
+                        <div className="w-full aspect-square relative bg-black flex items-center justify-center overflow-hidden">
                              <div className="absolute inset-0">
                                  <Scanner 
                                     onScan={handleScan} 
@@ -396,10 +402,15 @@ export const NutritionView = ({ userData, setUserData, nutritionLog, setNutritio
                                     }} 
                                  />
                              </div>
-                        </div>
-                        <div className="p-6 text-center text-white bg-black/80 backdrop-blur-md absolute bottom-0 w-full z-50">
-                            <p className="font-bold">Scannez un code-barres</p>
-                            <p className="text-xs text-white/60 mt-1">Placez le code dans le cadre</p>
+                             {/* Overlay to make it look like a scanner */}
+                             <div className="absolute inset-0 pointer-events-none border-[40px] border-black/40">
+                                <div className="w-full h-full border-2 border-indigo-500 rounded-xl relative">
+                                    <div className="absolute top-0 left-0 w-4 h-4 border-t-4 border-l-4 border-white rounded-tl-xl -mt-1 -ml-1"></div>
+                                    <div className="absolute top-0 right-0 w-4 h-4 border-t-4 border-r-4 border-white rounded-tr-xl -mt-1 -mr-1"></div>
+                                    <div className="absolute bottom-0 left-0 w-4 h-4 border-b-4 border-l-4 border-white rounded-bl-xl -mb-1 -ml-1"></div>
+                                    <div className="absolute bottom-0 right-0 w-4 h-4 border-b-4 border-r-4 border-white rounded-br-xl -mb-1 -mr-1"></div>
+                                </div>
+                             </div>
                         </div>
                     </div>
                 </div>
