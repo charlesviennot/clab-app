@@ -1434,35 +1434,39 @@ export default function App() {
 
       {/* Mobile Bottom Navigation */}
       {step === 'result' && (
-        <div className="sm:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 z-50 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] dark:shadow-[0_-4px_20px_rgba(0,0,0,0.2)]" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-            <div className="flex justify-around items-center h-16 px-2">
+        <div className="sm:hidden fixed bottom-0 left-0 right-0 z-50 pointer-events-none" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+            <div className="pointer-events-auto mx-4 mb-4 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-white/40 dark:border-slate-700/50 shadow-[0_8px_32px_rgba(0,0,0,0.12)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.3)] rounded-full flex justify-around items-center h-16 px-2">
                 <button 
                     onClick={() => handleTabChange('profile')} 
-                    className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors active:scale-95 ${activeTab === 'profile' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
+                    className={`relative flex flex-col items-center justify-center w-14 h-12 transition-all active:scale-95 ${activeTab === 'profile' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
                 >
-                    <User size={20} className={activeTab === 'profile' ? 'fill-indigo-100 dark:fill-indigo-900/50' : ''} />
-                    <span className="text-[10px] font-bold">Profil</span>
+                    {activeTab === 'profile' && <div className="absolute inset-0 bg-indigo-100/50 dark:bg-indigo-500/20 rounded-full -z-10"></div>}
+                    <User size={22} strokeWidth={activeTab === 'profile' ? 2.5 : 2} className={activeTab === 'profile' ? 'fill-indigo-100 dark:fill-indigo-900/50' : ''} />
+                    <span className="text-[9px] font-bold mt-0.5">Profil</span>
                 </button>
                 <button 
                     onClick={() => handleTabChange('plan')} 
-                    className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors active:scale-95 ${activeTab === 'plan' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
+                    className={`relative flex flex-col items-center justify-center w-14 h-12 transition-all active:scale-95 ${activeTab === 'plan' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
                 >
-                    <Calendar size={20} className={activeTab === 'plan' ? 'fill-indigo-100 dark:fill-indigo-900/50' : ''} />
-                    <span className="text-[10px] font-bold">Plan</span>
+                    {activeTab === 'plan' && <div className="absolute inset-0 bg-indigo-100/50 dark:bg-indigo-500/20 rounded-full -z-10"></div>}
+                    <Calendar size={22} strokeWidth={activeTab === 'plan' ? 2.5 : 2} className={activeTab === 'plan' ? 'fill-indigo-100 dark:fill-indigo-900/50' : ''} />
+                    <span className="text-[9px] font-bold mt-0.5">Plan</span>
                 </button>
                 <button 
                     onClick={() => handleTabChange('stats')} 
-                    className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors active:scale-95 ${activeTab === 'stats' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
+                    className={`relative flex flex-col items-center justify-center w-14 h-12 transition-all active:scale-95 ${activeTab === 'stats' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
                 >
-                    <BarChart3 size={20} className={activeTab === 'stats' ? 'fill-indigo-100 dark:fill-indigo-900/50' : ''} />
-                    <span className="text-[10px] font-bold">Science</span>
+                    {activeTab === 'stats' && <div className="absolute inset-0 bg-indigo-100/50 dark:bg-indigo-500/20 rounded-full -z-10"></div>}
+                    <BarChart3 size={22} strokeWidth={activeTab === 'stats' ? 2.5 : 2} className={activeTab === 'stats' ? 'fill-indigo-100 dark:fill-indigo-900/50' : ''} />
+                    <span className="text-[9px] font-bold mt-0.5">Science</span>
                 </button>
                 <button 
                     onClick={() => handleTabChange('nutrition')} 
-                    className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors active:scale-95 ${activeTab === 'nutrition' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
+                    className={`relative flex flex-col items-center justify-center w-14 h-12 transition-all active:scale-95 ${activeTab === 'nutrition' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
                 >
-                    <Utensils size={20} className={activeTab === 'nutrition' ? 'fill-indigo-100 dark:fill-indigo-900/50' : ''} />
-                    <span className="text-[10px] font-bold">Nutri</span>
+                    {activeTab === 'nutrition' && <div className="absolute inset-0 bg-indigo-100/50 dark:bg-indigo-500/20 rounded-full -z-10"></div>}
+                    <Utensils size={22} strokeWidth={activeTab === 'nutrition' ? 2.5 : 2} className={activeTab === 'nutrition' ? 'fill-indigo-100 dark:fill-indigo-900/50' : ''} />
+                    <span className="text-[9px] font-bold mt-0.5">Nutri</span>
                 </button>
             </div>
         </div>

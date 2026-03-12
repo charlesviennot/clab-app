@@ -225,6 +225,61 @@ export const NutritionView = ({ userData, setUserData, nutritionLog, setNutritio
     const nutrientTiming = getNutrientTiming();
     const filteredFood = FOOD_DATABASE.filter(f => f.name.toLowerCase().includes(searchTerm.toLowerCase()));
     
+    if (showScanner) {
+        return (
+            <div 
+                className="fixed inset-0 z-[10000] bg-black overflow-hidden touch-none overscroll-none flex flex-col animate-in slide-in-from-bottom-4 duration-300"
+                style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
+            >
+                <div className="absolute top-0 left-0 right-0 p-4 z-50 flex items-center justify-between bg-gradient-to-b from-black/80 to-transparent pt-safe">
+                    <button onClick={() => setShowScanner(false)} className="bg-white/20 p-2 rounded-full text-white backdrop-blur-md hover:bg-white/30 transition-colors flex items-center gap-2 pr-4">
+                        <ChevronRight className="rotate-180" size={20}/> <span className="text-sm font-bold">Retour</span>
+                    </button>
+                </div>
+
+                <div className="absolute inset-0 w-full h-full bg-black flex items-center justify-center overflow-hidden">
+                     <Scanner 
+                        onScan={handleScan} 
+                        onError={(error) => {
+                            // Use console.warn instead of console.error to avoid triggering the error overlay
+                            console.warn("Camera permission denied or unavailable:", error);
+                            alert("Impossible d'accéder à la caméra. Veuillez autoriser l'accès à la caméra dans les paramètres de votre navigateur.");
+                            setShowScanner(false);
+                        }}
+                        components={{ finder: false }}
+                        styles={{
+                            container: { width: '100%', height: '100%', paddingTop: 0, margin: 0, position: 'absolute', top: 0, left: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' },
+                            video: { width: '100%', height: '100%', objectFit: 'cover', margin: 0, position: 'absolute', top: 0, left: 0 }
+                        }}
+                     />
+                </div>
+                
+                {/* Clean SVG Mask Overlay */}
+                <svg className="absolute inset-0 w-full h-full pointer-events-none z-40" preserveAspectRatio="none">
+                    <defs>
+                        <mask id="scanner-mask">
+                            <rect width="100%" height="100%" fill="white" />
+                            <rect x="50%" y="50%" width="256" height="256" transform="translate(-128, -128)" rx="24" fill="black" />
+                        </mask>
+                    </defs>
+                    <rect width="100%" height="100%" fill="rgba(0,0,0,0.75)" mask="url(#scanner-mask)" />
+                </svg>
+
+                {/* Overlay Cutout Borders & Text */}
+                <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center z-50">
+                    <div className="w-64 h-64 relative">
+                        {/* Corners */}
+                        <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-white rounded-tl-[24px]"></div>
+                        <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-white rounded-tr-[24px]"></div>
+                        <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-white rounded-bl-[24px]"></div>
+                        <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-white rounded-br-[24px]"></div>
+                    </div>
+                    <p className="text-white font-medium mt-8 bg-black/40 px-5 py-2.5 rounded-full backdrop-blur-md text-sm shadow-xl">Placez le code-barres ici</p>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <>
             {/* MAIN CONTENT inside animated div */}
@@ -378,59 +433,6 @@ export const NutritionView = ({ userData, setUserData, nutritionLog, setNutritio
                     </div>
                 </div>
             </div>
-
-            {/* BARCODE SCANNER MODAL */}
-            {showScanner && (
-                <div 
-                    className="fixed inset-0 z-[10000] bg-black overflow-hidden touch-none overscroll-none"
-                    style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, height: '100dvh', width: '100vw' }}
-                >
-                    <div className="absolute top-0 left-0 right-0 p-4 z-50 flex items-center justify-between bg-gradient-to-b from-black/80 to-transparent pt-safe">
-                        <button onClick={() => setShowScanner(false)} className="bg-white/20 p-2 rounded-full text-white backdrop-blur-md hover:bg-white/30 transition-colors flex items-center gap-2 pr-4">
-                            <X size={20}/> <span className="text-sm font-bold">Fermer</span>
-                        </button>
-                    </div>
-
-                    <div className="absolute inset-0 w-full h-full bg-black scanner-wrapper">
-                         <style>{`
-                             .scanner-wrapper > div,
-                             .scanner-wrapper > section {
-                                 padding-top: 0 !important;
-                                 height: 100% !important;
-                                 width: 100% !important;
-                                 position: absolute !important;
-                                 top: 0 !important;
-                                 left: 0 !important;
-                                 margin: 0 !important;
-                             }
-                             .scanner-wrapper video {
-                                 object-fit: cover !important;
-                                 width: 100% !important;
-                                 height: 100% !important;
-                                 position: absolute !important;
-                                 top: 0 !important;
-                                 left: 0 !important;
-                                 margin: 0 !important;
-                             }
-                         `}</style>
-                         <Scanner 
-                            onScan={handleScan} 
-                            components={{ finder: false }}
-                         />
-                    </div>
-                    
-                    {/* Overlay with cutout */}
-                    <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center z-40">
-                        <div className="w-64 h-64 border-2 border-white/50 rounded-2xl relative shadow-[0_0_0_9999px_rgba(0,0,0,0.85)]">
-                            <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-indigo-500 rounded-tl-2xl -mt-0.5 -ml-0.5"></div>
-                            <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-indigo-500 rounded-tr-2xl -mt-0.5 -mr-0.5"></div>
-                            <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-indigo-500 rounded-bl-2xl -mb-0.5 -ml-0.5"></div>
-                            <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-indigo-500 rounded-br-2xl -mb-0.5 -mr-0.5"></div>
-                        </div>
-                        <p className="text-white font-bold mt-8 bg-black/50 px-4 py-2 rounded-full backdrop-blur-md">Placez le code-barres ici</p>
-                    </div>
-                </div>
-            )}
 
             {/* FOOD SEARCH MODAL - OUTSIDE of animated div to prevent stacking context clipping */}
             {showFoodSearch && (
