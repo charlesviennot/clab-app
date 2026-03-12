@@ -381,37 +381,53 @@ export const NutritionView = ({ userData, setUserData, nutritionLog, setNutritio
 
             {/* BARCODE SCANNER MODAL */}
             {showScanner && (
-                <div className="fixed inset-0 z-[10000] bg-black/90 backdrop-blur-sm flex flex-col items-center justify-center animate-in fade-in duration-200 p-4">
-                    <div className="w-full max-w-sm bg-slate-900 rounded-3xl overflow-hidden shadow-2xl relative animate-in zoom-in-95 duration-300 border border-slate-800">
-                        <button onClick={() => setShowScanner(false)} className="absolute top-4 right-4 z-50 bg-black/50 p-2 rounded-full text-white backdrop-blur-md hover:bg-black/70 transition-colors">
-                            <X size={20}/>
+                <div 
+                    className="fixed inset-0 z-[10000] bg-black overflow-hidden touch-none overscroll-none"
+                    style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, height: '100dvh', width: '100vw' }}
+                >
+                    <div className="absolute top-0 left-0 right-0 p-4 z-50 flex items-center justify-between bg-gradient-to-b from-black/80 to-transparent pt-safe">
+                        <button onClick={() => setShowScanner(false)} className="bg-white/20 p-2 rounded-full text-white backdrop-blur-md hover:bg-white/30 transition-colors flex items-center gap-2 pr-4">
+                            <X size={20}/> <span className="text-sm font-bold">Fermer</span>
                         </button>
-                        
-                        <div className="p-6 text-center text-white border-b border-slate-800">
-                            <p className="font-bold text-lg">Scannez un code-barres</p>
-                            <p className="text-xs text-slate-400 mt-1">Placez le code dans le cadre</p>
-                        </div>
+                    </div>
 
-                        <div className="w-full aspect-square relative bg-black flex items-center justify-center overflow-hidden">
-                             <div className="absolute inset-0">
-                                 <Scanner 
-                                    onScan={handleScan} 
-                                    styles={{ 
-                                        container: { width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' },
-                                        video: { objectFit: 'cover' }
-                                    }} 
-                                 />
-                             </div>
-                             {/* Overlay to make it look like a scanner */}
-                             <div className="absolute inset-0 pointer-events-none border-[40px] border-black/40">
-                                <div className="w-full h-full border-2 border-indigo-500 rounded-xl relative">
-                                    <div className="absolute top-0 left-0 w-4 h-4 border-t-4 border-l-4 border-white rounded-tl-xl -mt-1 -ml-1"></div>
-                                    <div className="absolute top-0 right-0 w-4 h-4 border-t-4 border-r-4 border-white rounded-tr-xl -mt-1 -mr-1"></div>
-                                    <div className="absolute bottom-0 left-0 w-4 h-4 border-b-4 border-l-4 border-white rounded-bl-xl -mb-1 -ml-1"></div>
-                                    <div className="absolute bottom-0 right-0 w-4 h-4 border-b-4 border-r-4 border-white rounded-br-xl -mb-1 -mr-1"></div>
-                                </div>
-                             </div>
+                    <div className="absolute inset-0 w-full h-full bg-black scanner-wrapper">
+                         <style>{`
+                             .scanner-wrapper > div,
+                             .scanner-wrapper > section {
+                                 padding-top: 0 !important;
+                                 height: 100% !important;
+                                 width: 100% !important;
+                                 position: absolute !important;
+                                 top: 0 !important;
+                                 left: 0 !important;
+                                 margin: 0 !important;
+                             }
+                             .scanner-wrapper video {
+                                 object-fit: cover !important;
+                                 width: 100% !important;
+                                 height: 100% !important;
+                                 position: absolute !important;
+                                 top: 0 !important;
+                                 left: 0 !important;
+                                 margin: 0 !important;
+                             }
+                         `}</style>
+                         <Scanner 
+                            onScan={handleScan} 
+                            components={{ finder: false }}
+                         />
+                    </div>
+                    
+                    {/* Overlay with cutout */}
+                    <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center z-40">
+                        <div className="w-64 h-64 border-2 border-white/50 rounded-2xl relative shadow-[0_0_0_9999px_rgba(0,0,0,0.85)]">
+                            <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-indigo-500 rounded-tl-2xl -mt-0.5 -ml-0.5"></div>
+                            <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-indigo-500 rounded-tr-2xl -mt-0.5 -mr-0.5"></div>
+                            <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-indigo-500 rounded-bl-2xl -mb-0.5 -ml-0.5"></div>
+                            <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-indigo-500 rounded-br-2xl -mb-0.5 -mr-0.5"></div>
                         </div>
+                        <p className="text-white font-bold mt-8 bg-black/50 px-4 py-2 rounded-full backdrop-blur-md">Placez le code-barres ici</p>
                     </div>
                 </div>
             )}
