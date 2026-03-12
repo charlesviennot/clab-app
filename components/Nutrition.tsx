@@ -1,9 +1,10 @@
 
 import React, { useState } from 'react';
-import { Plus, Trash2, Search, Flame, Droplet, ChevronRight, Apple, ScanBarcode, Minus, Utensils, Globe, Loader2, Download, X } from 'lucide-react';
+import { Plus, Trash2, Search, Flame, Droplet, ChevronRight, Apple, ScanBarcode, Minus, Utensils, Globe, Loader2, Download, X, Mic, Send } from 'lucide-react';
 import { calculateDailyCalories, getNutrientTiming, vibrate } from '../utils/helpers';
 import { FOOD_DATABASE } from '../data/foodDatabase';
 import { Scanner } from '@yudiel/react-qr-scanner';
+import { GoogleGenAI, Type } from '@google/genai';
 
 const MacroCard = ({ label, current, target, colorClass, bgClass, icon }: any) => {
     const percent = Math.min(100, (current / target) * 100);
@@ -40,6 +41,12 @@ export const NutritionView = ({ userData, setUserData, nutritionLog, setNutritio
     const [showScanner, setShowScanner] = useState(false);
 
     const [editingId, setEditingId] = useState<number | null>(null);
+
+    // Voice Input State
+    const [showVoiceModal, setShowVoiceModal] = useState(false);
+    const [voiceText, setVoiceText] = useState('');
+    const [isProcessingVoice, setIsProcessingVoice] = useState(false);
+    const [isListening, setIsListening] = useState(false);
 
     // Calculate targets
     const metabolism = calculateDailyCalories(userData);
@@ -222,6 +229,114 @@ export const NutritionView = ({ userData, setUserData, nutritionLog, setNutritio
         }
     };
 
+    const startListening = () => {
+        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            alert("Votre navigateur ne supporte pas la reconnaissance vocale.");
+            return;
+        }
+
+        const recognition = new SpeechRecognition();
+        recognition.lang = 'fr-FR';
+        recognition.interimResults = false;
+        recognition.maxAlternatives = 1;
+
+        recognition.onstart = () => {
+            setIsListening(true);
+            if(userData.hapticEnabled) vibrate(50);
+        };
+
+        recognition.onresult = (event: any) => {
+            const transcript = event.results[0][0].transcript;
+            setVoiceText(transcript);
+        };
+
+        recognition.onerror = (event: any) => {
+            console.error("Erreur reconnaissance vocale", event.error);
+            setIsListening(false);
+        };
+
+        recognition.onend = () => {
+            setIsListening(false);
+        };
+
+        recognition.start();
+    };
+
+    const processVoiceInput = async () => {
+        if (!voiceText.trim()) return;
+        setIsProcessingVoice(true);
+        
+        try {
+            const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+            const response = await ai.models.generateContent({
+                model: 'gemini-3-flash-preview',
+                contents: `L'utilisateur a dit : "${voiceText}". 
+                Extrais les aliments mentionnés, estime leur quantité en grammes, et donne les valeurs nutritionnelles pour 100g (kcal, protéines, glucides, lipides).
+                Trouve aussi un emoji pertinent pour chaque aliment.`,
+                config: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: Type.ARRAY,
+                        items: {
+                            type: Type.OBJECT,
+                            properties: {
+                                name: { type: Type.STRING, description: "Nom de l'aliment en français" },
+                                emoji: { type: Type.STRING, description: "Un seul emoji représentant l'aliment" },
+                                quantity: { type: Type.NUMBER, description: "Quantité estimée en grammes" },
+                                per100g: {
+                                    type: Type.OBJECT,
+                                    properties: {
+                                        kcal: { type: Type.NUMBER },
+                                        protein: { type: Type.NUMBER },
+                                        carbs: { type: Type.NUMBER },
+                                        fats: { type: Type.NUMBER }
+                                    },
+                                    required: ["kcal", "protein", "carbs", "fats"]
+                                }
+                            },
+                            required: ["name", "emoji", "quantity", "per100g"]
+                        }
+                    }
+                }
+            });
+
+            const jsonStr = response.text?.trim() || "[]";
+            const foods = JSON.parse(jsonStr);
+
+            if (foods && foods.length > 0) {
+                // Add all foods to the log directly
+                let currentLogData = [...todayLog];
+                foods.forEach((food: any) => {
+                    const ratio = food.quantity / 100;
+                    currentLogData.push({
+                        id: Date.now() + Math.random(),
+                        name: food.name,
+                        emoji: food.emoji || '🍽️',
+                        quantity: food.quantity,
+                        kcal: (food.per100g.kcal || 0) * ratio,
+                        protein: (food.per100g.protein || 0) * ratio,
+                        carbs: (food.per100g.carbs || 0) * ratio,
+                        fats: (food.per100g.fats || 0) * ratio,
+                        per100g: food.per100g
+                    });
+                });
+                
+                setNutritionLog({ ...nutritionLog, [today]: currentLogData });
+                setVoiceText('');
+                setShowVoiceModal(false);
+                if(userData.hapticEnabled) vibrate([50, 50, 50]);
+            } else {
+                alert("Je n'ai pas pu comprendre les aliments mentionnés.");
+            }
+        } catch (error) {
+            console.error("Erreur IA", error);
+            alert("Une erreur est survenue lors de l'analyse.");
+        } finally {
+            setIsProcessingVoice(false);
+        }
+    };
+
     const nutrientTiming = getNutrientTiming();
     const filteredFood = FOOD_DATABASE.filter(f => f.name.toLowerCase().includes(searchTerm.toLowerCase()));
     
@@ -262,6 +377,7 @@ export const NutritionView = ({ userData, setUserData, nutritionLog, setNutritio
                             <p className="text-[10px] text-slate-400 font-bold uppercase">Objectif: {userData.nutritionGoal === 'maintain' ? 'Maintien' : userData.nutritionGoal === 'cut' ? 'Perte' : 'Prise de masse'}</p>
                         </div>
                         <div className="flex gap-2">
+                            <button onClick={() => setShowVoiceModal(true)} className="p-2 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl hover:bg-slate-200 transition"><Mic size={20}/></button>
                             <button onClick={() => setShowScanner(true)} className="p-2 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl hover:bg-slate-200 transition"><ScanBarcode size={20}/></button>
                             <button onClick={() => setShowFoodSearch(true)} className="p-2 bg-indigo-600 text-white rounded-xl shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition active:scale-95"><Plus size={20}/></button>
                         </div>
@@ -440,6 +556,50 @@ export const NutritionView = ({ userData, setUserData, nutritionLog, setNutritio
                             <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-white rounded-br-[24px]"></div>
                         </div>
                         <p className="text-white font-medium mt-8 bg-black/40 px-5 py-2.5 rounded-full backdrop-blur-md text-sm shadow-xl">Placez le code-barres ici</p>
+                    </div>
+                </div>
+            )}
+
+            {/* VOICE INPUT MODAL */}
+            {showVoiceModal && (
+                <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-slate-900/95 backdrop-blur-md animate-in fade-in duration-300 top-0 left-0 w-full h-full">
+                    <div className="bg-white dark:bg-slate-800 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col p-6 relative">
+                        <button onClick={() => setShowVoiceModal(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-white transition">
+                            <X size={24}/>
+                        </button>
+                        
+                        <div className="text-center mb-6 mt-4">
+                            <div className="w-16 h-16 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <Mic size={32}/>
+                            </div>
+                            <h2 className="text-2xl font-black text-slate-800 dark:text-white mb-2">Saisie Vocale</h2>
+                            <p className="text-slate-500 text-sm">Dites ce que vous avez mangé, l'IA s'occupe du reste.</p>
+                        </div>
+
+                        <div className="relative mb-6">
+                            <textarea 
+                                value={voiceText}
+                                onChange={(e) => setVoiceText(e.target.value)}
+                                placeholder="Ex: J'ai mangé deux œufs brouillés, une tranche de pain complet et un café..."
+                                className="w-full h-32 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-slate-700 dark:text-white outline-none focus:border-indigo-500 transition resize-none"
+                            ></textarea>
+                            
+                            <button 
+                                onClick={startListening}
+                                className={`absolute bottom-4 right-4 p-3 rounded-full text-white shadow-lg transition-all ${isListening ? 'bg-rose-500 animate-pulse scale-110' : 'bg-indigo-600 hover:bg-indigo-700'}`}
+                            >
+                                <Mic size={20}/>
+                            </button>
+                        </div>
+
+                        <button 
+                            onClick={processVoiceInput}
+                            disabled={!voiceText.trim() || isProcessingVoice}
+                            className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:dark:bg-slate-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-indigo-200 dark:shadow-none transition active:scale-95 flex items-center justify-center gap-2"
+                        >
+                            {isProcessingVoice ? <Loader2 size={20} className="animate-spin"/> : <Send size={20}/>}
+                            {isProcessingVoice ? "Analyse en cours..." : "Analyser le repas"}
+                        </button>
                     </div>
                 </div>
             )}

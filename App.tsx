@@ -17,6 +17,7 @@ import { getRecommendedSchedule, downloadShareImage, downloadTCX, downloadWorkou
 import { RpeBadge, WorkoutViz, LiveSessionTimer, InteractiveInterference, PolarizationChart, WeeklyVolumeChart, BanisterChart, TrimpChart, InstallGuide, RunTracker, ProfileView, StatCard, AcwrGauge, DailyBriefing } from './components/Visuals';
 import { ExerciseCatalog, ExerciseModal, SessionHistoryDetail, DataManagementModal } from './components/Modals';
 import { NutritionView } from './components/Nutrition';
+import { WeightProgressionChart, MacroDistributionChart } from './components/AdvancedCharts';
 
 export default function App() {
   const defaultUserData = { 
@@ -1360,6 +1361,8 @@ export default function App() {
                 <div className="text-center p-3 bg-slate-50 dark:bg-slate-700 rounded-xl"><div className="text-2xl font-black text-slate-800 dark:text-white">{stats ? stats.sessionsDone : 0}</div><div className="text-[10px] font-bold text-slate-400 uppercase">Séances</div></div>
               </div>
               <div className="space-y-8">
+                <div><h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2">Progression du Poids</h4><WeightProgressionChart /></div>
+                <div><h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2">Répartition des Macros</h4><MacroDistributionChart /></div>
                 <div><h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2">Respect du modèle Polarisé (80/20)</h4><PolarizationChart low={stats?.intensityBuckets.low || 0} high={stats?.intensityBuckets.high || 0} /></div>
                 <div><h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2">Volume Hebdomadaire (Minutes)</h4><WeeklyVolumeChart plannedData={stats?.weeklyVolume || []} realizedData={stats?.realizedWeeklyVolume || []} /></div>
               </div>
