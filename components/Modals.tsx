@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { STRENGTH_PROTOCOLS, RUN_PROTOCOLS } from '../data/protocols';
 import { HEVY_EXERCISES } from '../data/exercises';
-import { parseRestTime, getMuscleActivation, formatStopwatch, calculate1RM, calculatePlates, calculateHeartRateZones, playBeep, initAudioContext } from '../utils/helpers';
+import { parseRestTime, getMuscleActivation, formatStopwatch, calculate1RM, calculatePlates, calculateHeartRateZones, playBeep, initAudioContext, vibrate } from '../utils/helpers';
 import { MuscleHeatmap } from './Visuals';
 import { downloadShareImage, downloadTCX } from '../utils/logic';
 
@@ -485,7 +485,7 @@ export const FreeTimerModal = ({ onClose, onComplete }: any) => {
   );
 };
 
-export const ExerciseModal = ({ exercise, exerciseId, category, onClose, onComplete, exerciseIndex, savedData, exercisesLog }: any) => {
+export const ExerciseModal = ({ exercise, exerciseId, category, onClose, onComplete, exerciseIndex, savedData, exercisesLog, userData }: any) => {
   const [imgError, setImgError] = useState(false);
   const [setsStatus, setSetsStatus] = useState<boolean[]>([]);
   const [timer, setTimer] = useState(0);
@@ -578,12 +578,14 @@ export const ExerciseModal = ({ exercise, exerciseId, category, onClose, onCompl
       }
       
       setWeights(newWeights);
+      if (userData?.hapticEnabled) vibrate(10);
   };
 
   const handleRepsChange = (index: number, val: string) => {
       const newReps = [...reps];
       newReps[index] = val;
       setReps(newReps);
+      if (userData?.hapticEnabled) vibrate(10);
   };
 
   const handleAddSet = () => {

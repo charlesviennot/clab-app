@@ -64,6 +64,11 @@ export default function App() {
   
   const [step, setStep] = useState<string>(() => loadState('step', 'input'));
   const [activeTab, setActiveTab] = useState<string>(() => loadState('activeTab', 'plan'));
+
+  const handleTabChange = (tab: string) => {
+      setActiveTab(tab);
+      if (userData.hapticEnabled) vibrate(10);
+  };
   const [showInstallGuide, setShowInstallGuide] = useState(false);
   const [showDataModal, setShowDataModal] = useState(false); // Modal state
   const [userData, setUserData] = useState<any>(() => loadState('userData', defaultUserData));
@@ -536,10 +541,10 @@ export default function App() {
                 </div>
             </div>
              <div className="hidden sm:flex w-auto bg-slate-800 rounded-lg p-1">
-                    <button onClick={() => setActiveTab('profile')} className={`px-4 py-2 rounded-md text-xs font-bold transition text-center flex items-center justify-center gap-2 ${activeTab === 'profile' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}><User size={14} className="shrink-0"/> Profil</button>
-                    <button onClick={() => setActiveTab('plan')} className={`px-4 py-2 rounded-md text-xs font-bold transition text-center flex items-center justify-center gap-2 ${activeTab === 'plan' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}><Calendar size={14} className="shrink-0"/> Programme</button>
-                    <button onClick={() => setActiveTab('stats')} className={`px-4 py-2 rounded-md text-xs font-bold transition text-center flex items-center justify-center gap-2 ${activeTab === 'stats' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}><BarChart3 size={14} className="shrink-0"/> Science</button>
-                    <button onClick={() => setActiveTab('nutrition')} className={`px-4 py-2 rounded-md text-xs font-bold transition text-center flex items-center justify-center gap-2 ${activeTab === 'nutrition' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}><Utensils size={14} className="shrink-0"/> Nutrition</button>
+                    <button onClick={() => handleTabChange('profile')} className={`px-4 py-2 rounded-md text-xs font-bold transition text-center flex items-center justify-center gap-2 ${activeTab === 'profile' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}><User size={14} className="shrink-0"/> Profil</button>
+                    <button onClick={() => handleTabChange('plan')} className={`px-4 py-2 rounded-md text-xs font-bold transition text-center flex items-center justify-center gap-2 ${activeTab === 'plan' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}><Calendar size={14} className="shrink-0"/> Programme</button>
+                    <button onClick={() => handleTabChange('stats')} className={`px-4 py-2 rounded-md text-xs font-bold transition text-center flex items-center justify-center gap-2 ${activeTab === 'stats' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}><BarChart3 size={14} className="shrink-0"/> Science</button>
+                    <button onClick={() => handleTabChange('nutrition')} className={`px-4 py-2 rounded-md text-xs font-bold transition text-center flex items-center justify-center gap-2 ${activeTab === 'nutrition' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}><Utensils size={14} className="shrink-0"/> Nutrition</button>
               </div>
             </div>
         </div>
@@ -573,6 +578,7 @@ export default function App() {
                 onComplete={(uniqueId: string, isExercise: boolean, data: any) => handleSessionCompleteFromModal(uniqueId, isExercise, data)}
                 savedData={exercisesLog[`${modalExercise.id}-ex-${modalExercise.index}`]} 
                 exercisesLog={exercisesLog}
+                userData={userData}
             />
         )}
 
@@ -1431,28 +1437,28 @@ export default function App() {
         <div className="sm:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 z-50 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] dark:shadow-[0_-4px_20px_rgba(0,0,0,0.2)]" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
             <div className="flex justify-around items-center h-16 px-2">
                 <button 
-                    onClick={() => setActiveTab('profile')} 
+                    onClick={() => handleTabChange('profile')} 
                     className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors active:scale-95 ${activeTab === 'profile' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
                 >
                     <User size={20} className={activeTab === 'profile' ? 'fill-indigo-100 dark:fill-indigo-900/50' : ''} />
                     <span className="text-[10px] font-bold">Profil</span>
                 </button>
                 <button 
-                    onClick={() => setActiveTab('plan')} 
+                    onClick={() => handleTabChange('plan')} 
                     className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors active:scale-95 ${activeTab === 'plan' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
                 >
                     <Calendar size={20} className={activeTab === 'plan' ? 'fill-indigo-100 dark:fill-indigo-900/50' : ''} />
                     <span className="text-[10px] font-bold">Plan</span>
                 </button>
                 <button 
-                    onClick={() => setActiveTab('stats')} 
+                    onClick={() => handleTabChange('stats')} 
                     className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors active:scale-95 ${activeTab === 'stats' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
                 >
                     <BarChart3 size={20} className={activeTab === 'stats' ? 'fill-indigo-100 dark:fill-indigo-900/50' : ''} />
                     <span className="text-[10px] font-bold">Science</span>
                 </button>
                 <button 
-                    onClick={() => setActiveTab('nutrition')} 
+                    onClick={() => handleTabChange('nutrition')} 
                     className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors active:scale-95 ${activeTab === 'nutrition' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
                 >
                     <Utensils size={20} className={activeTab === 'nutrition' ? 'fill-indigo-100 dark:fill-indigo-900/50' : ''} />

@@ -559,6 +559,11 @@ export const ProfileView = ({ userData, setUserData, stats, darkMode, setDarkMod
     const [showPlateModal, setShowPlateModal] = useState(false);
     const [showHeartRateModal, setShowHeartRateModal] = useState(false);
 
+    const handleNumberChange = (field: string, value: string) => {
+        setUserData({...userData, [field]: parseFloat(value)});
+        if (userData?.hapticEnabled) vibrate(10);
+    };
+
     const handleConnectStrava = async () => {
         try {
             // Generate URL Client-Side to avoid server issues
@@ -747,15 +752,15 @@ export const ProfileView = ({ userData, setUserData, stats, darkMode, setDarkMod
                 <div className="grid grid-cols-2 gap-4">
                      <div className="bg-slate-50 dark:bg-slate-700 p-3 rounded-xl border border-slate-100 dark:border-slate-600 focus-within:ring-2 ring-indigo-100 dark:ring-indigo-900 transition-all">
                         <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">Poids (kg)</div>
-                        <input type="number" inputMode="decimal" pattern="[0-9]*" value={userData.weight} onChange={(e) => setUserData({...userData, weight: parseFloat(e.target.value)})} className="w-full bg-transparent font-black text-xl text-slate-700 dark:text-white outline-none" />
+                        <input type="number" inputMode="decimal" pattern="[0-9]*" value={userData.weight} onChange={(e) => handleNumberChange('weight', e.target.value)} className="w-full bg-transparent font-black text-xl text-slate-700 dark:text-white outline-none" />
                      </div>
                      <div className="bg-slate-50 dark:bg-slate-700 p-3 rounded-xl border border-slate-100 dark:border-slate-600 focus-within:ring-2 ring-indigo-100 dark:ring-indigo-900 transition-all">
                         <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">Taille (cm)</div>
-                        <input type="number" inputMode="decimal" pattern="[0-9]*" value={userData.height} onChange={(e) => setUserData({...userData, height: parseFloat(e.target.value)})} className="w-full bg-transparent font-black text-xl text-slate-700 dark:text-white outline-none" />
+                        <input type="number" inputMode="decimal" pattern="[0-9]*" value={userData.height} onChange={(e) => handleNumberChange('height', e.target.value)} className="w-full bg-transparent font-black text-xl text-slate-700 dark:text-white outline-none" />
                      </div>
                      <div className="bg-slate-50 dark:bg-slate-700 p-3 rounded-xl border border-slate-100 dark:border-slate-600 focus-within:ring-2 ring-indigo-100 dark:ring-indigo-900 transition-all">
                         <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">Âge</div>
-                        <input type="number" inputMode="decimal" pattern="[0-9]*" value={userData.age} onChange={(e) => setUserData({...userData, age: parseFloat(e.target.value)})} className="w-full bg-transparent font-black text-xl text-slate-700 dark:text-white outline-none" />
+                        <input type="number" inputMode="decimal" pattern="[0-9]*" value={userData.age} onChange={(e) => handleNumberChange('age', e.target.value)} className="w-full bg-transparent font-black text-xl text-slate-700 dark:text-white outline-none" />
                      </div>
                      <div className="bg-slate-50 dark:bg-slate-700 p-3 rounded-xl border border-slate-100 dark:border-slate-600">
                         <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">Genre</div>
