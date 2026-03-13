@@ -1,6 +1,6 @@
 
-import React, { useState } from 'react';
-import { Plus, Trash2, Search, Flame, Droplet, ChevronRight, Apple, ScanBarcode, Minus, Utensils, Globe, Loader2, Download, X, Mic, Send } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Plus, Trash2, Search, Flame, Droplet, ChevronRight, Apple, ScanBarcode, Minus, Utensils, Globe, Loader2, Download, X, Mic, Send, Key } from 'lucide-react';
 import { calculateDailyCalories, getNutrientTiming, vibrate } from '../utils/helpers';
 import { FOOD_DATABASE } from '../data/foodDatabase';
 import { Scanner } from '@yudiel/react-qr-scanner';
@@ -47,6 +47,18 @@ export const NutritionView = ({ userData, setUserData, nutritionLog, setNutritio
     const [voiceText, setVoiceText] = useState('');
     const [isProcessingVoice, setIsProcessingVoice] = useState(false);
     const [isListening, setIsListening] = useState(false);
+    
+    // API Key State
+    const [showApiKeyModal, setShowApiKeyModal] = useState(false);
+    const [tempApiKey, setTempApiKey] = useState('');
+    const [hasStoredKey, setHasStoredKey] = useState(false);
+
+    useEffect(() => {
+        const storedKey = localStorage.getItem('USER_GEMINI_API_KEY');
+        if (storedKey) {
+            setHasStoredKey(true);
+        }
+    }, []);
 
     // Calculate targets
     const metabolism = calculateDailyCalories(userData);
@@ -268,7 +280,17 @@ export const NutritionView = ({ userData, setUserData, nutritionLog, setNutritio
         setIsProcessingVoice(true);
         
         try {
-            const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+            const storedKey = localStorage.getItem('USER_GEMINI_API_KEY');
+            const envKey = process.env.GEMINI_API_KEY;
+            const apiKey = storedKey || envKey;
+            
+            if (!apiKey) {
+                setShowApiKeyModal(true);
+                setIsProcessingVoice(false);
+                return;
+            }
+
+            const ai = new GoogleGenAI({ apiKey });
             const response = await ai.models.generateContent({
                 model: 'gemini-3-flash-preview',
                 contents: `L'utilisateur a dit : "${voiceText}". 
@@ -335,6 +357,35 @@ export const NutritionView = ({ userData, setUserData, nutritionLog, setNutritio
         } finally {
             setIsProcessingVoice(false);
         }
+    };
+
+    const saveApiKey = () => {
+        if (tempApiKey.trim()) {
+            localStorage.setItem('USER_GEMINI_API_KEY', tempApiKey.trim());
+            setHasStoredKey(true);
+            setShowApiKeyModal(false);
+            alert("Clé API sauvegardée ! Vous pouvez maintenant utiliser la saisie vocale.");
+            // Optionally trigger the voice processing again if there's text
+            if (voiceText.trim()) {
+                processVoiceInput();
+            }
+        }
+    };
+
+    const deleteApiKey = () => {
+        if (window.confirm("Voulez-vous vraiment supprimer votre clé API de cet appareil ?")) {
+            localStorage.removeItem('USER_GEMINI_API_KEY');
+            setTempApiKey('');
+            setHasStoredKey(false);
+            setShowApiKeyModal(false);
+            alert("Clé API supprimée avec succès.");
+        }
+    };
+
+    const openApiKeySettings = () => {
+        const storedKey = localStorage.getItem('USER_GEMINI_API_KEY');
+        setTempApiKey(storedKey || '');
+        setShowApiKeyModal(true);
     };
 
     const nutrientTiming = getNutrientTiming();
@@ -774,6 +825,77 @@ export const NutritionView = ({ userData, setUserData, nutritionLog, setNutritio
                                 </div>
                             </>
                         )}
+                    </div>
+                </div>
+            )}
+
+            <div className="mt-8 flex justify-center pb-8">
+                <button 
+                    onClick={openApiKeySettings}
+                    className="flex items-center gap-2 text-xs font-medium text-slate-400 hover:text-indigo-500 transition"
+                >
+                    <Key size={14} />
+                    {hasStoredKey ? "Gérer ma clé API Gemini" : "Configurer l'IA Gemini"}
+                </button>
+            </div>
+
+            {/* API KEY MODAL */}
+            {showApiKeyModal && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-white dark:bg-slate-800 rounded-3xl w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+                        <div className="p-6">
+                            <div className="flex justify-between items-center mb-6">
+                                <h3 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                                    <Globe className="text-indigo-500" /> Clé API Requise
+                                </h3>
+                                <button onClick={() => setShowApiKeyModal(false)} className="p-2 bg-slate-100 dark:bg-slate-700 rounded-full text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">
+                                    <X size={20} />
+                                </button>
+                            </div>
+                            <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
+                                Pour analyser intelligemment vos repas par la voix, l'application utilise l'intelligence artificielle Gemini.
+                            </p>
+                            
+                            <div className="bg-indigo-50 dark:bg-indigo-900/30 p-4 rounded-xl mb-6 text-xs text-indigo-800 dark:text-indigo-200 space-y-2">
+                                <p><strong>Pourquoi une clé ?</strong> L'IA a un coût. En utilisant votre propre clé gratuite, l'application reste 100% gratuite et sans abonnement.</p>
+                                <p><strong>Sécurité :</strong> Votre clé est sauvegardée <em>uniquement</em> sur votre appareil (navigateur). Elle n'est jamais envoyée sur nos serveurs.</p>
+                            </div>
+
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2">Votre clé API Gemini</label>
+                                    <input 
+                                        type="password" 
+                                        value={tempApiKey}
+                                        onChange={(e) => setTempApiKey(e.target.value)}
+                                        placeholder="AIzaSy..."
+                                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-4 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    />
+                                </div>
+                                <div className="text-xs text-slate-500 dark:text-slate-400">
+                                    <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:underline">
+                                        Obtenir une clé API gratuite ici
+                                    </a>
+                                </div>
+                                <div className="flex gap-3 pt-2">
+                                    {hasStoredKey && (
+                                        <button 
+                                            onClick={deleteApiKey}
+                                            className="flex-1 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-xl py-4 font-bold hover:bg-red-100 dark:hover:bg-red-900/40 transition"
+                                        >
+                                            Supprimer
+                                        </button>
+                                    )}
+                                    <button 
+                                        onClick={saveApiKey}
+                                        disabled={!tempApiKey.trim()}
+                                        className="flex-[2] bg-indigo-600 text-white rounded-xl py-4 font-bold disabled:opacity-50 hover:bg-indigo-700 transition"
+                                    >
+                                        Sauvegarder
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}
