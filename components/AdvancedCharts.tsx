@@ -33,11 +33,12 @@ const macroData = [
   { day: 'Dim', protein: 140, carbs: 200, fats: 60 },
 ];
 
-export const WeightProgressionChart = () => {
+export const WeightProgressionChart = ({ data, targetWeight }: { data?: any[], targetWeight?: number }) => {
+  const chartData = data && data.length > 0 ? data.map(d => ({ ...d, target: targetWeight || null })) : weightData;
   return (
     <div className="h-64 w-full mt-4">
       <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={weightData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+        <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
           <defs>
             <linearGradient id="colorWeight" x1="0" y1="0" x2="0" y2="1">
               <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3}/>
@@ -53,7 +54,41 @@ export const WeightProgressionChart = () => {
             labelStyle={{ fontSize: '10px', color: '#64748b', marginBottom: '4px' }}
           />
           <Area type="monotone" dataKey="weight" name="Poids (kg)" stroke="#6366f1" strokeWidth={3} fillOpacity={1} fill="url(#colorWeight)" activeDot={{ r: 6, strokeWidth: 0, fill: '#6366f1' }} />
-          <Line type="dashed" dataKey="target" name="Objectif" stroke="#cbd5e1" strokeWidth={2} strokeDasharray="5 5" dot={false} />
+          {targetWeight && <Line type="dashed" dataKey="target" name="Objectif" stroke="#cbd5e1" strokeWidth={2} strokeDasharray="5 5" dot={false} />}
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  );
+};
+
+export const StrengthEvolutionChart = ({ data }: { data?: any[] }) => {
+  // If no data, show some mock data
+  const chartData = data && data.length > 0 ? data : [
+    { date: '01/03', volume: 2500 },
+    { date: '08/03', volume: 2800 },
+    { date: '15/03', volume: 3100 },
+    { date: '22/03', volume: 3400 },
+  ];
+
+  return (
+    <div className="h-64 w-full mt-4">
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+          <defs>
+            <linearGradient id="colorStrength" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.3}/>
+              <stop offset="95%" stopColor="#f43f5e" stopOpacity={0}/>
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+          <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} dy={10} />
+          <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} />
+          <Tooltip 
+            contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+            itemStyle={{ fontSize: '12px', fontWeight: 'bold' }}
+            labelStyle={{ fontSize: '10px', color: '#64748b', marginBottom: '4px' }}
+          />
+          <Area type="monotone" dataKey="volume" name="Tonnage (kg)" stroke="#f43f5e" strokeWidth={3} fillOpacity={1} fill="url(#colorStrength)" activeDot={{ r: 6, strokeWidth: 0, fill: '#f43f5e' }} />
         </AreaChart>
       </ResponsiveContainer>
     </div>

@@ -17,12 +17,14 @@ import { getRecommendedSchedule, downloadShareImage, downloadTCX, downloadWorkou
 import { RpeBadge, WorkoutViz, LiveSessionTimer, InteractiveInterference, PolarizationChart, WeeklyVolumeChart, BanisterChart, TrimpChart, InstallGuide, RunTracker, ProfileView, StatCard, AcwrGauge, DailyBriefing } from './components/Visuals';
 import { ExerciseCatalog, ExerciseModal, SessionHistoryDetail, DataManagementModal } from './components/Modals';
 import { NutritionView } from './components/Nutrition';
-import { WeightProgressionChart, MacroDistributionChart } from './components/AdvancedCharts';
+import { WeightProgressionChart, MacroDistributionChart, StrengthEvolutionChart } from './components/AdvancedCharts';
 
 export default function App() {
   const defaultUserData = { 
       name: "Athlète", 
       weight: 75, 
+      targetWeight: 73,
+      weightHistory: [{ date: new Date().toLocaleDateString('fr-FR', {day: '2-digit', month: '2-digit'}), weight: 75 }],
       height: 175, 
       age: 30, 
       gender: 'male', 
@@ -254,11 +256,13 @@ export default function App() {
       let plannedIntensityBuckets = { low: 0, high: 0 }; 
       let currentWeekLoad = 0; // ACWR Acute
       let last4WeeksLoad = 0; // ACWR Chronic
+      const strengthEvolution: { date: string, volume: number }[] = [];
 
       const currentWeekIdx = plan.findIndex(w => !w.sessions.every((s: any) => completedSessions.has(s.id)));
       const activeWeekIndex = currentWeekIdx === -1 ? plan.length - 1 : currentWeekIdx;
 
       plan.forEach((week, i) => { 
+          let weekTonnage = 0;
           week.sessions.forEach((session: any) => { 
               plannedWeeklyVolume[i] += session.durationMin; 
               if (session.intensity === 'low') plannedIntensityBuckets.low += session.durationMin; 
@@ -273,8 +277,32 @@ export default function App() {
                       const km = parseFloat(session.distance); 
                       if(!isNaN(km)) totalKm += km; 
                   } 
+                  if (session.category === 'strength' || session.category === 'hyrox') {
+                      if (session.exercises) {
+                          session.exercises.forEach((ex: any, idx: number) => {
+                              const log = exercisesLog[`${session.id}-ex-${idx}`];
+                              if (log && log.weights) {
+                                  log.weights.forEach((w: string, rIdx: number) => {
+                                      const weight = parseFloat(w) || 0;
+                                      let reps = parseFloat(log.reps?.[rIdx]) || 0;
+                                      if (!reps) {
+                                          if (typeof ex.reps === 'number') reps = ex.reps;
+                                          else if (typeof ex.reps === 'string') {
+                                              const match = ex.reps.match(/(\d+)/);
+                                              if (match) reps = parseInt(match[1]);
+                                          }
+                                      }
+                                      weekTonnage += weight * reps;
+                                  });
+                              }
+                          });
+                      }
+                  }
               } 
           }); 
+          if (weekTonnage > 0) {
+              strengthEvolution.push({ date: `S${week.weekNumber}`, volume: weekTonnage });
+          }
       }); 
 
       // ACWR Calc
@@ -294,7 +322,8 @@ export default function App() {
           intensityBuckets: plannedIntensityBuckets, 
           weeklyVolume: plannedWeeklyVolume, 
           realizedWeeklyVolume: weeklyVolume,
-          acwr: { acute: currentWeekLoad, chronic: chronicAvg }
+          acwr: { acute: currentWeekLoad, chronic: chronicAvg },
+          strengthEvolution
       }; 
   }, [plan, completedSessions]);
   
@@ -552,7 +581,7 @@ export default function App() {
         </div>
       )}
 
-      <main className="max-w-3xl mx-auto px-4 mt-6 flex-1 w-full relative z-20 pb-28 sm:pb-12">
+      <main className="max-w-3xl mx-auto px-4 mt-6 flex-1 w-full relative z-20 pb-36 sm:pb-12">
         
         {step === 'result' && (
             <a 
@@ -1446,7 +1475,8 @@ export default function App() {
                 <div className="text-center p-3 bg-slate-50 dark:bg-slate-700 rounded-xl"><div className="text-2xl font-black text-slate-800 dark:text-white">{stats ? stats.sessionsDone : 0}</div><div className="text-[10px] font-bold text-slate-400 uppercase">Séances</div></div>
               </div>
               <div className="space-y-8">
-                <div><h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2">Progression du Poids</h4><WeightProgressionChart /></div>
+                <div><h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2">Progression du Poids</h4><WeightProgressionChart data={userData.weightHistory} targetWeight={userData.targetWeight} /></div>
+                <div><h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2">Évolution en Musculation (Tonnage)</h4><StrengthEvolutionChart data={stats?.strengthEvolution} /></div>
                 <div><h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2">Répartition des Macros</h4><MacroDistributionChart /></div>
                 <div><h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2">Respect du modèle Polarisé (80/20)</h4><PolarizationChart low={stats?.intensityBuckets.low || 0} high={stats?.intensityBuckets.high || 0} /></div>
                 <div><h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2">Volume Hebdomadaire (Minutes)</h4><WeeklyVolumeChart plannedData={stats?.weeklyVolume || []} realizedData={stats?.realizedWeeklyVolume || []} /></div>

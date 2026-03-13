@@ -21,21 +21,6 @@ export const getRecommendedSchedule = (sessions: any[], userData: any) => {
         let bestDay = -1;
         let minScore = Infinity;
 
-        // Force Long Runs to the last available day (usually the weekend)
-        if (session.type.includes("Sortie Longue") || (session.type.includes("Endurance") && session.durationMin >= 60 && !session.type.includes("Fondamentale"))) {
-            const weekendDays = availableDays.filter((d: number) => d === 5 || d === 6);
-            if (weekendDays.length > 0) {
-                bestDay = weekendDays[weekendDays.length - 1]; // Prefer Sunday
-            } else {
-                bestDay = availableDays[availableDays.length - 1];
-            }
-            
-            // If the best day already has a long run, we should still evaluate other days
-            if (scheduleData[bestDay].sessions.some(s => s.type.includes("Sortie Longue"))) {
-                bestDay = -1; 
-            }
-        }
-
         if (bestDay === -1) {
             // Score each available day to find the optimal placement
             for (const day of availableDays) {
@@ -48,6 +33,7 @@ export const getRecommendedSchedule = (sessions: any[], userData: any) => {
 
                 daySessions.forEach(s => {
                     dayScore += s.durationMin || 0;
+                    dayScore += 300; // Strong penalty for multiple sessions on the same day to force spreading
                     if (s.intensity === 'high') {
                         dayScore += 200; // Heavy penalty for multiple high intensity
                         hasHighIntensity = true;
@@ -60,6 +46,15 @@ export const getRecommendedSchedule = (sessions: any[], userData: any) => {
                 if (session.category === 'run' && hasStrength) dayScore += 80;
                 if (session.category === 'strength' && hasRun) dayScore += 80;
                 if (session.intensity === 'high' && hasHighIntensity) dayScore += 1000; // Strongly avoid double high intensity
+
+                // Prefer weekends for long runs
+                if (session.type.includes("Sortie Longue") || (session.type.includes("Endurance") && session.durationMin >= 60 && !session.type.includes("Fondamentale"))) {
+                    if (day !== 5 && day !== 6) {
+                        dayScore += 100; // Penalty for placing long run on a weekday
+                    } else if (day === 6) {
+                        dayScore -= 20; // Slight preference for Sunday over Saturday
+                    }
+                }
 
                 // Method specific logic
                 if (method === 'polarized') {
@@ -81,6 +76,20 @@ export const getRecommendedSchedule = (sessions: any[], userData: any) => {
                 
                 if (session.intensity === 'high' && (prevHasHigh || nextHasHigh)) {
                     dayScore += 150; // Penalty for back-to-back hard days
+                }
+
+                // Penalize consecutive days of the same category to spread them out
+                const prevHasSameCategory = scheduleData[prevDay].sessions.some(s => s.category === session.category);
+                const nextHasSameCategory = scheduleData[nextDay].sessions.some(s => s.category === session.category);
+                if (prevHasSameCategory || nextHasSameCategory) {
+                    dayScore += 50; 
+                }
+
+                // Slight penalty for consecutive training days of any kind to encourage rest days
+                const prevHasSession = scheduleData[prevDay].sessions.length > 0;
+                const nextHasSession = scheduleData[nextDay].sessions.length > 0;
+                if (prevHasSession || nextHasSession) {
+                    dayScore += 20;
                 }
 
                 if (dayScore < minScore) {

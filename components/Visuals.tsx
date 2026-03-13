@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Zap, Dumbbell, Activity, Flame, Clock, X, Smartphone, Share, Pause, Play, StopCircle, Navigation, MapPin, Ruler, Save, Download, Upload, Copy, Check, Briefcase, Armchair, Hammer, Trash2, FileJson, TrendingDown, TrendingUp, Volume2, VolumeX, Calculator, Disc, Calendar, ArrowRight, Sun, Moon, Coffee, CheckCircle, Trophy, HeartPulse, Cloud, CloudRain, CloudSnow, CloudLightning, Wind } from 'lucide-react';
+import { Zap, Dumbbell, Activity, Flame, Clock, X, Smartphone, Share, Pause, Play, StopCircle, Navigation, MapPin, Ruler, Save, Download, Upload, Copy, Check, Briefcase, Armchair, Hammer, Trash2, FileJson, TrendingDown, TrendingUp, Volume2, VolumeX, Calculator, Disc, Calendar, ArrowRight, Sun, Moon, Coffee, CheckCircle, Trophy, HeartPulse, Cloud, CloudRain, CloudSnow, CloudLightning, Wind, Plus } from 'lucide-react';
 import { formatStopwatch, getMuscleActivation, calculateHaversineDistance, calculateDailyCalories, playBeep, initAudioContext, getXpLevel, getRandomMotivation, vibrate, checkAndRefreshStravaToken } from '../utils/helpers';
 import { DataManagementModal, OneRMModal, PlateCalculatorModal, HeartRateModal } from './Modals';
 
@@ -755,6 +755,10 @@ export const ProfileView = ({ userData, setUserData, stats, darkMode, setDarkMod
                         <input type="number" inputMode="decimal" pattern="[0-9]*" value={userData.weight} onChange={(e) => handleNumberChange('weight', e.target.value)} className="w-full bg-transparent font-black text-xl text-slate-700 dark:text-white outline-none" />
                      </div>
                      <div className="bg-slate-50 dark:bg-slate-700 p-3 rounded-xl border border-slate-100 dark:border-slate-600 focus-within:ring-2 ring-indigo-100 dark:ring-indigo-900 transition-all">
+                        <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">Objectif Poids (kg)</div>
+                        <input type="number" inputMode="decimal" pattern="[0-9]*" value={userData.targetWeight || ''} onChange={(e) => handleNumberChange('targetWeight', e.target.value)} className="w-full bg-transparent font-black text-xl text-slate-700 dark:text-white outline-none" placeholder="Ex: 73" />
+                     </div>
+                     <div className="bg-slate-50 dark:bg-slate-700 p-3 rounded-xl border border-slate-100 dark:border-slate-600 focus-within:ring-2 ring-indigo-100 dark:ring-indigo-900 transition-all">
                         <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">Taille (cm)</div>
                         <input type="number" inputMode="decimal" pattern="[0-9]*" value={userData.height} onChange={(e) => handleNumberChange('height', e.target.value)} className="w-full bg-transparent font-black text-xl text-slate-700 dark:text-white outline-none" />
                      </div>
@@ -762,7 +766,7 @@ export const ProfileView = ({ userData, setUserData, stats, darkMode, setDarkMod
                         <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">Âge</div>
                         <input type="number" inputMode="decimal" pattern="[0-9]*" value={userData.age} onChange={(e) => handleNumberChange('age', e.target.value)} className="w-full bg-transparent font-black text-xl text-slate-700 dark:text-white outline-none" />
                      </div>
-                     <div className="bg-slate-50 dark:bg-slate-700 p-3 rounded-xl border border-slate-100 dark:border-slate-600">
+                     <div className="bg-slate-50 dark:bg-slate-700 p-3 rounded-xl border border-slate-100 dark:border-slate-600 col-span-2">
                         <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">Genre</div>
                         <select value={userData.gender} onChange={(e) => setUserData({...userData, gender: e.target.value})} className="w-full bg-transparent font-bold text-sm text-slate-700 dark:text-white outline-none">
                             <option value="male">Homme</option>
@@ -770,6 +774,26 @@ export const ProfileView = ({ userData, setUserData, stats, darkMode, setDarkMod
                         </select>
                      </div>
                 </div>
+                
+                <button 
+                    onClick={() => {
+                        const today = new Date().toLocaleDateString('fr-FR', {day: '2-digit', month: '2-digit'});
+                        const history = userData.weightHistory || [];
+                        // Check if today already exists, if so update it, else add new
+                        const existingIndex = history.findIndex((h: any) => h.date === today);
+                        let newHistory = [...history];
+                        if (existingIndex >= 0) {
+                            newHistory[existingIndex].weight = userData.weight;
+                        } else {
+                            newHistory.push({ date: today, weight: userData.weight });
+                        }
+                        setUserData({...userData, weightHistory: newHistory});
+                        if (userData.hapticEnabled) vibrate(10);
+                    }}
+                    className="w-full mt-4 py-3 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl font-bold text-sm hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition active:scale-95 flex items-center justify-center gap-2"
+                >
+                    <Plus size={16} /> Enregistrer le poids du jour
+                </button>
             </div>
 
             {/* PR TRACKER */}
