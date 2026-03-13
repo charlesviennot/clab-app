@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Plus, Trash2, Search, Flame, Droplet, ChevronRight, Apple, ScanBarcode, Minus, Utensils, Globe, Loader2, Download, X, Mic, Send, Key } from 'lucide-react';
 import { calculateDailyCalories, getNutrientTiming, vibrate } from '../utils/helpers';
 import { FOOD_DATABASE } from '../data/foodDatabase';
@@ -544,14 +545,27 @@ export const NutritionView = ({ userData, setUserData, nutritionLog, setNutritio
                         <p className="text-sm text-slate-300 leading-relaxed opacity-90">{nutrientTiming.advice}</p>
                     </div>
                 </div>
+
+                <div className="mt-8 flex justify-center pb-8">
+                    <button 
+                        onClick={openApiKeySettings}
+                        className="flex items-center gap-2 text-xs font-medium text-slate-400 hover:text-indigo-500 transition"
+                    >
+                        <Key size={14} />
+                        {hasStoredKey ? "Gérer ma clé API Gemini" : "Configurer l'IA Gemini"}
+                    </button>
+                </div>
             </div>
 
-            {/* BARCODE SCANNER MODAL */}
-            {showScanner && (
-                <div 
-                    className="fixed inset-0 z-[10000] bg-black overflow-hidden touch-none overscroll-none"
-                    style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, height: '100dvh', width: '100vw' }}
-                >
+            {/* MODALS PORTAL */}
+            {createPortal(
+                <>
+                    {/* BARCODE SCANNER MODAL */}
+                    {showScanner && (
+                        <div 
+                            className="fixed inset-0 z-[10000] bg-black overflow-hidden touch-none overscroll-none"
+                            style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, height: '100dvh', width: '100vw' }}
+                        >
                     <div className="absolute top-0 left-0 right-0 p-4 z-50 flex items-center justify-between bg-gradient-to-b from-black/80 to-transparent pt-safe">
                         <button onClick={() => setShowScanner(false)} className="bg-white/20 p-2 rounded-full text-white backdrop-blur-md hover:bg-white/30 transition-colors flex items-center gap-2 pr-4">
                             <X size={20}/> <span className="text-sm font-bold">Fermer</span>
@@ -829,19 +843,9 @@ export const NutritionView = ({ userData, setUserData, nutritionLog, setNutritio
                 </div>
             )}
 
-            <div className="mt-8 flex justify-center pb-8">
-                <button 
-                    onClick={openApiKeySettings}
-                    className="flex items-center gap-2 text-xs font-medium text-slate-400 hover:text-indigo-500 transition"
-                >
-                    <Key size={14} />
-                    {hasStoredKey ? "Gérer ma clé API Gemini" : "Configurer l'IA Gemini"}
-                </button>
-            </div>
-
             {/* API KEY MODAL */}
             {showApiKeyModal && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[10001] flex items-center justify-center p-4">
                     <div className="bg-white dark:bg-slate-800 rounded-3xl w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
                         <div className="p-6">
                             <div className="flex justify-between items-center mb-6">
@@ -899,6 +903,7 @@ export const NutritionView = ({ userData, setUserData, nutritionLog, setNutritio
                     </div>
                 </div>
             )}
+            </>, document.body)}
         </>
     );
 };

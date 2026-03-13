@@ -8,7 +8,7 @@ import {
   Info, BarChart3, GraduationCap, ShieldCheck, Layers, FlaskConical,
   Coffee, Smartphone, Medal, Play, Download, Camera, Footprints,
   Sparkles, Dumbbell, History, Utensils, BookOpen, TrendingUp, Activity,
-  Ruler, Square, Brain, Timer, Home, HeartPulse, MapPin, Navigation, User, Save, FileJson, Upload
+  Ruler, Square, Brain, Timer, Home, HeartPulse, MapPin, Navigation, User, Save, FileJson, Upload, X
 } from 'lucide-react';
 import { LOGO_URL, DONATION_URL } from './constants';
 import { RUN_PROTOCOLS, STRENGTH_PROTOCOLS } from './data/protocols';
@@ -158,6 +158,7 @@ export default function App() {
   const [filteredSessionIds, setFilteredSessionIds] = useState<string[] | null>(null);
   const [feedbackMessage, setFeedbackMessage] = useState<any>(null);
   const [expandedSession, setExpandedSession] = useState<string | null>(null);
+  const [expandedWeekOverview, setExpandedWeekOverview] = useState<number | null>(null);
   const [swapSelection, setSwapSelection] = useState<any>(null);
   const [exerciseSwapSelection, setExerciseSwapSelection] = useState<any>(null);
   const [catalogSessionId, setCatalogSessionId] = useState<string | null>(null);
@@ -568,6 +569,70 @@ export default function App() {
 
         {showInstallGuide && <InstallGuide onClose={() => setShowInstallGuide(false)} />}
         {showDataModal && <DataManagementModal onClose={() => setShowDataModal(false)} />}
+
+        {expandedWeekOverview !== null && (() => {
+            const week = plan.find(w => w.weekNumber === expandedWeekOverview);
+            if (!week) return null;
+            return (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/95 backdrop-blur-md animate-in fade-in duration-300">
+                    <div className="bg-white dark:bg-slate-800 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+                        <div className="p-4 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-900">
+                            <div>
+                                <h3 className="font-black text-slate-800 dark:text-white">Aperçu Semaine {week.weekNumber}</h3>
+                                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{week.focus}</div>
+                            </div>
+                            <button onClick={() => setExpandedWeekOverview(null)} className="p-2 bg-slate-200 dark:bg-slate-700 rounded-full text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">
+                                <X size={20}/>
+                            </button>
+                        </div>
+                        <div className="p-4 overflow-y-auto space-y-3">
+                            {week.schedule.map((day: any, i: number) => {
+                                const dayNames = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
+                                const hasActivity = day.sessionIds.length > 0;
+                                const isDayCompleted = hasActivity && day.sessionIds.every((id: any) => completedSessions.has(id));
+                                
+                                return (
+                                    <div key={i} className={`p-3 rounded-xl border ${hasActivity ? (isDayCompleted ? 'bg-green-50/50 border-green-200 dark:bg-green-900/10 dark:border-green-800' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-sm') : 'bg-slate-50 dark:bg-slate-900/50 border-dashed border-slate-200 dark:border-slate-700'}`}>
+                                        <div className="flex items-center justify-between mb-2">
+                                            <div className="font-bold text-sm text-slate-800 dark:text-white flex items-center gap-2">
+                                                {dayNames[i]}
+                                                {isDayCompleted && <CheckCircle size={14} className="text-green-500"/>}
+                                            </div>
+                                        </div>
+                                        {hasActivity ? (
+                                            <div className="space-y-2">
+                                                {day.sessionIds.map((sessionId: string) => {
+                                                    const session = week.sessions.find((s: any) => s.id === sessionId);
+                                                    if (!session) return null;
+                                                    const isSessionDone = completedSessions.has(session.id);
+                                                    let iconColor = "text-indigo-500";
+                                                    if (!isSessionDone) {
+                                                        if (session.intensity === 'high') iconColor = "text-rose-500";
+                                                        else if (session.intensity === 'medium') iconColor = "text-amber-500";
+                                                        else iconColor = "text-blue-500";
+                                                    }
+                                                    return (
+                                                        <div key={sessionId} className="flex items-center gap-2 text-xs">
+                                                            {session.category === 'run' ? <Footprints size={14} className={iconColor}/> : <Dumbbell size={14} className={iconColor}/>}
+                                                            <span className={`font-medium ${isSessionDone ? 'text-slate-400 line-through' : 'text-slate-600 dark:text-slate-300'}`}>{session.type}</span>
+                                                            <span className="text-slate-400 ml-auto">{session.duration}</span>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        ) : (
+                                            <div className="text-xs text-slate-400 italic flex items-center gap-1">
+                                                <Coffee size={12}/> Repos
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+            );
+        })()}
 
         {modalExercise && (
             <ExerciseModal 
@@ -1103,9 +1168,19 @@ export default function App() {
 
                             {/* Progress Bar */}
                             <div className="mb-4">
-                                <div className="flex justify-between text-[10px] font-bold text-slate-500 mb-1">
-                                    <span>Progression</span>
-                                    <span>🔥 {completedInWeek}/{weekSessions.length} séances</span>
+                                <div className="flex justify-between items-center mb-1">
+                                    <div className="text-[10px] font-bold text-slate-500">
+                                        <span>Progression</span>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <button 
+                                            onClick={() => setExpandedWeekOverview(currentWeek.weekNumber)}
+                                            className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-2 py-0.5 rounded-md flex items-center gap-1 transition"
+                                        >
+                                            <Calendar size={10}/> Aperçu Semaine
+                                        </button>
+                                        <span className="text-[10px] font-bold text-slate-500">🔥 {completedInWeek}/{weekSessions.length} séances</span>
+                                    </div>
                                 </div>
                                 <div className="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
                                     <div className="h-full bg-indigo-600 rounded-full transition-all duration-500" style={{ width: `${weekProgress}%` }}></div>
@@ -1133,14 +1208,24 @@ export default function App() {
                                     }
 
                                     return (
-                                        <button 
-                                            key={i}
-                                            onClick={() => setSelectedDayIndex(i)}
-                                            className={`flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-xl transition-all ${isSelected ? 'bg-indigo-600 text-white shadow-md scale-105' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
-                                        >
-                                            <span className={`text-xs sm:text-sm font-black uppercase ${isSelected ? 'text-white' : 'text-slate-800 dark:text-white'}`}>{dayNamesShort[i]}</span>
-                                            <div className={`w-1.5 h-1.5 rounded-full ${dotColor}`}></div>
-                                        </button>
+                                        <div key={i} className="relative">
+                                            <button 
+                                                onClick={() => setSelectedDayIndex(i)}
+                                                className={`w-full flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-xl transition-all ${isSelected ? 'bg-indigo-600 text-white shadow-md scale-105' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
+                                            >
+                                                <span className={`text-xs sm:text-sm font-black uppercase ${isSelected ? 'text-white' : 'text-slate-800 dark:text-white'}`}>{dayNamesShort[i]}</span>
+                                                <div className={`w-1.5 h-1.5 rounded-full ${dotColor}`}></div>
+                                            </button>
+                                            {isSelected && (
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); handleSwapRequest(currentWeek.weekNumber, i); }}
+                                                    className={`absolute -top-2 -right-1 p-1.5 rounded-full shadow-md z-10 transition-all ${swapSelection?.weekIdx === currentWeek.weekNumber && swapSelection?.dayIdx === i ? 'bg-indigo-600 text-white animate-pulse' : 'bg-white dark:bg-slate-700 text-slate-400 hover:text-indigo-600'}`}
+                                                    title="Déplacer cette journée"
+                                                >
+                                                    <ArrowRightLeft size={10} />
+                                                </button>
+                                            )}
+                                        </div>
                                     );
                                 })}
                             </div>
