@@ -8,7 +8,7 @@ import {
   Info, BarChart3, GraduationCap, ShieldCheck, Layers, FlaskConical,
   Coffee, Smartphone, Medal, Play, Download, Camera, Footprints,
   Sparkles, Dumbbell, History, Utensils, BookOpen, TrendingUp, Activity,
-  Ruler, Square, Brain, Timer, Home, HeartPulse, MapPin, Navigation, User, Save, FileJson, Upload, X
+  Ruler, Square, Brain, Timer, Home, HeartPulse, MapPin, Navigation, User, Save, FileJson, Upload, X, Heart
 } from 'lucide-react';
 import { LOGO_URL, DONATION_URL } from './constants';
 import { RUN_PROTOCOLS, STRENGTH_PROTOCOLS } from './data/protocols';
@@ -17,6 +17,7 @@ import { getRecommendedSchedule, downloadShareImage, downloadTCX, downloadWorkou
 import { RpeBadge, WorkoutViz, LiveSessionTimer, InteractiveInterference, PolarizationChart, WeeklyVolumeChart, BanisterChart, TrimpChart, InstallGuide, RunTracker, ProfileView, StatCard, AcwrGauge, DailyBriefing } from './components/Visuals';
 import { ExerciseCatalog, ExerciseModal, SessionHistoryDetail, DataManagementModal } from './components/Modals';
 import { NutritionView } from './components/Nutrition';
+import { HealthView } from './components/Health';
 import { WeightProgressionChart, MacroDistributionChart, StrengthEvolutionChart } from './components/AdvancedCharts';
 
 export default function App() {
@@ -82,6 +83,7 @@ export default function App() {
   const [completedExercises, setCompletedExercises] = useState<Set<string>>(() => loadState('completedExercises', new Set()));
   const [exercisesLog, setExercisesLog] = useState<any>(() => loadState('exercisesLog', {}));
   const [nutritionLog, setNutritionLog] = useState<any>(() => loadState('nutritionLog', {})); 
+  const [waterLog, setWaterLog] = useState<any>(() => loadState('waterLog', {})); 
   const [stravaData, setStravaData] = useState<any>(() => loadState('stravaData', null));
   const [calculationMode, setCalculationMode] = useState('weeks'); 
   const [darkMode, setDarkMode] = useState<boolean>(() => loadState('darkMode', false));
@@ -154,7 +156,7 @@ export default function App() {
     handleStravaCallback();
   }, []);
 
-  useEffect(() => { const dataToSave = { step, activeTab, userData, plan, expandedWeek, completedSessions: Array.from(completedSessions), completedExercises: Array.from(completedExercises), exercisesLog, nutritionLog, stravaData, darkMode }; localStorage.setItem('clab_storage', JSON.stringify(dataToSave)); }, [step, activeTab, userData, plan, expandedWeek, completedSessions, completedExercises, exercisesLog, nutritionLog, stravaData, darkMode]);
+  useEffect(() => { const dataToSave = { step, activeTab, userData, plan, expandedWeek, completedSessions: Array.from(completedSessions), completedExercises: Array.from(completedExercises), exercisesLog, nutritionLog, waterLog, stravaData, darkMode }; localStorage.setItem('clab_storage', JSON.stringify(dataToSave)); }, [step, activeTab, userData, plan, expandedWeek, completedSessions, completedExercises, exercisesLog, nutritionLog, waterLog, stravaData, darkMode]);
 
   const [modalExercise, setModalExercise] = useState<any>(null); 
   const [filteredSessionIds, setFilteredSessionIds] = useState<string[] | null>(null);
@@ -1459,7 +1461,11 @@ export default function App() {
           </div>
         ) : activeTab === 'nutrition' ? (
              <div key="nutrition" className="animate-tab-enter">
-                 <NutritionView userData={userData} setUserData={setUserData} nutritionLog={nutritionLog} setNutritionLog={setNutritionLog} showFoodSearch={showFoodSearch} setShowFoodSearch={setShowFoodSearch} setShowDataModal={setShowDataModal} />
+                 <NutritionView userData={userData} setUserData={setUserData} nutritionLog={nutritionLog} setNutritionLog={setNutritionLog} waterLog={waterLog} setWaterLog={setWaterLog} showFoodSearch={showFoodSearch} setShowFoodSearch={setShowFoodSearch} setShowDataModal={setShowDataModal} />
+             </div>
+        ) : activeTab === 'health' ? (
+             <div key="health" className="animate-tab-enter">
+                 <HealthView userData={userData} setUserData={setUserData} />
              </div>
         ) : activeTab === 'profile' ? (
              <div key="profile" className="animate-tab-enter">
@@ -1577,6 +1583,14 @@ export default function App() {
                     {activeTab === 'stats' && <div className="absolute inset-0 bg-indigo-100/50 dark:bg-indigo-500/20 rounded-full -z-10"></div>}
                     <BarChart3 size={22} strokeWidth={activeTab === 'stats' ? 2.5 : 2} className={activeTab === 'stats' ? 'fill-indigo-100 dark:fill-indigo-900/50' : ''} />
                     <span className="text-[9px] font-bold mt-0.5">Science</span>
+                </button>
+                <button 
+                    onClick={() => handleTabChange('health')} 
+                    className={`relative flex flex-col items-center justify-center w-14 h-12 transition-all active:scale-95 ${activeTab === 'health' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
+                >
+                    {activeTab === 'health' && <div className="absolute inset-0 bg-indigo-100/50 dark:bg-indigo-500/20 rounded-full -z-10"></div>}
+                    <Heart size={22} strokeWidth={activeTab === 'health' ? 2.5 : 2} className={activeTab === 'health' ? 'fill-indigo-100 dark:fill-indigo-900/50' : ''} />
+                    <span className="text-[9px] font-bold mt-0.5">Santé</span>
                 </button>
                 <button 
                     onClick={() => handleTabChange('nutrition')} 

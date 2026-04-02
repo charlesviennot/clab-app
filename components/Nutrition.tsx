@@ -28,9 +28,8 @@ const MacroCard = ({ label, current, target, colorClass, bgClass, icon }: any) =
     );
 };
 
-export const NutritionView = ({ userData, setUserData, nutritionLog, setNutritionLog, showFoodSearch, setShowFoodSearch }: any) => {
+export const NutritionView = ({ userData, setUserData, nutritionLog, setNutritionLog, waterLog, setWaterLog, showFoodSearch, setShowFoodSearch }: any) => {
     const [searchTerm, setSearchTerm] = useState('');
-    const [waterIntake, setWaterIntake] = useState(0);
     
     // External Search State
     const [externalResults, setExternalResults] = useState<any[]>([]);
@@ -75,6 +74,12 @@ export const NutritionView = ({ userData, setUserData, nutritionLog, setNutritio
     // Get today's log
     const today = new Date().toISOString().split('T')[0];
     const todayLog = nutritionLog[today] || [];
+    const waterIntake = waterLog?.[today] || 0;
+
+    const setWaterIntake = (updater: number | ((prev: number) => number)) => {
+        const newValue = typeof updater === 'function' ? updater(waterIntake) : updater;
+        setWaterLog((prev: any) => ({ ...prev, [today]: newValue }));
+    };
 
     const todayStats = todayLog.reduce((acc: any, item: any) => {
         return {
