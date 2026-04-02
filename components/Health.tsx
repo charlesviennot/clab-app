@@ -22,18 +22,29 @@ export const HealthView = ({ userData, setUserData }: any) => {
         return saved ? JSON.parse(saved) : [];
     });
 
+    const [liveSignal, setLiveSignal] = useState<number[]>([]);
+    const [signalQuality, setSignalQuality] = useState(0);
+    const [isPulseDetected, setIsPulseDetected] = useState(false);
+
     const videoRef = useRef<HTMLVideoElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const streamRef = useRef<MediaStream | null>(null);
     const animationRef = useRef<number | null>(null);
     const signalRef = useRef<number[]>([]);
     const timestampsRef = useRef<number[]>([]);
-    const lastValueRef = useRef<number>(0);
     const filterRef = useRef<number>(0);
 
     useEffect(() => {
         localStorage.setItem('clab_health_history', JSON.stringify(history));
     }, [history]);
+
+    // Effect to attach stream to video element when it becomes available
+    useEffect(() => {
+        if (isMeasuring && streamRef.current && videoRef.current) {
+            videoRef.current.srcObject = streamRef.current;
+            videoRef.current.play().catch(e => console.error("Video play failed", e));
+        }
+    }, [isMeasuring]);
 
     const startMeasurement = async () => {
         try {
@@ -42,6 +53,9 @@ export const HealthView = ({ userData, setUserData }: any) => {
             setHrv(null);
             setStatus(null);
             setProgress(0);
+            setLiveSignal([]);
+            setSignalQuality(0);
+            setIsPulseDetected(false);
             signalRef.current = [];
             timestampsRef.current = [];
             
@@ -55,16 +69,16 @@ export const HealthView = ({ userData, setUserData }: any) => {
             });
 
             streamRef.current = stream;
-            if (videoRef.current) {
-                videoRef.current.srcObject = stream;
-                videoRef.current.play();
-            }
-
+            
             // Try to enable torch
             const track = stream.getVideoTracks()[0];
             const capabilities = track.getCapabilities() as any;
             if (capabilities.torch) {
-                await track.applyConstraints({ advanced: [{ torch: true }] } as any);
+                try {
+                    await track.applyConstraints({ advanced: [{ torch: true }] } as any);
+                } catch (e) {
+                    console.warn("Torch activation failed", e);
+                }
             }
 
             setIsMeasuring(true);
@@ -72,20 +86,39 @@ export const HealthView = ({ userData, setUserData }: any) => {
             const duration = 30000; // 30 seconds
 
             const processFrame = () => {
-                if (!isMeasuring || !videoRef.current || !canvasRef.current) return;
+                if (!streamRef.current || !canvasRef.current) return;
 
                 const ctx = canvasRef.current.getContext('2d', { willReadFrequently: true });
                 if (!ctx) return;
 
-                ctx.drawImage(videoRef.current, 0, 0, 100, 100);
+                // We use a hidden canvas to process the pixels even if video is shown
+                // But we can also use the video element as source for drawImage
+                // To be safe and reactive, we use the stream directly if possible or the video ref
+                const source = videoRef.current || streamRef.current;
+                
+                try {
+                    ctx.drawImage(source as any, 0, 0, 100, 100);
+                } catch (e) {
+                    // If video isn't ready yet
+                    animationRef.current = requestAnimationFrame(processFrame);
+                    return;
+                }
+
                 const imageData = ctx.getImageData(0, 0, 100, 100);
                 const data = imageData.data;
 
                 let redSum = 0;
+                let greenSum = 0;
                 for (let i = 0; i < data.length; i += 4) {
                     redSum += data[i];
+                    greenSum += data[i+1];
                 }
                 const avgRed = redSum / (data.length / 4);
+                const avgGreen = greenSum / (data.length / 4);
+
+                // Quality check: finger should be red and bright
+                const quality = (avgRed > 150 && avgRed > avgGreen * 1.2) ? 100 : 20;
+                setSignalQuality(quality);
 
                 // Simple high-pass filter to remove DC offset
                 const alpha = 0.95;
@@ -94,6 +127,15 @@ export const HealthView = ({ userData, setUserData }: any) => {
 
                 signalRef.current.push(filteredValue);
                 timestampsRef.current.push(Date.now());
+                
+                // Pulse detection for UI feedback
+                if (filteredValue > 0.8) {
+                    setIsPulseDetected(true);
+                    setTimeout(() => setIsPulseDetected(false), 150);
+                }
+
+                // Update live signal for graph (last 50 points)
+                setLiveSignal(prev => [...prev.slice(-49), filteredValue]);
 
                 const elapsed = Date.now() - startTime;
                 const p = Math.min(100, (elapsed / duration) * 100);
@@ -120,9 +162,16 @@ export const HealthView = ({ userData, setUserData }: any) => {
         setIsMeasuring(false);
         if (animationRef.current) cancelAnimationFrame(animationRef.current);
         if (streamRef.current) {
-            streamRef.current.getTracks().forEach(track => track.stop());
+            streamRef.current.getTracks().forEach(track => {
+                // Try to turn off torch before stopping
+                const capabilities = track.getCapabilities() as any;
+                if (capabilities.torch) {
+                    track.applyConstraints({ advanced: [{ torch: false }] } as any).catch(() => {});
+                }
+                track.stop();
+            });
         }
-        if (videoRef.current) videoRef.current.srcObject = null;
+        streamRef.current = null;
     };
 
     const calculateResults = () => {
@@ -139,8 +188,11 @@ export const HealthView = ({ userData, setUserData }: any) => {
         const minPeakDistance = 400; // ms (max 150 BPM)
         let lastPeakTime = 0;
 
+        // Simple thresholding for peak detection
+        const threshold = 0.5; 
+
         for (let i = 1; i < signal.length - 1; i++) {
-            if (signal[i] > signal[i - 1] && signal[i] > signal[i + 1] && signal[i] > 0.5) {
+            if (signal[i] > signal[i - 1] && signal[i] > signal[i + 1] && signal[i] > threshold) {
                 const time = timestamps[i];
                 if (time - lastPeakTime > minPeakDistance) {
                     peaks.push(time);
@@ -149,7 +201,7 @@ export const HealthView = ({ userData, setUserData }: any) => {
             }
         }
 
-        if (peaks.length < 10) {
+        if (peaks.length < 8) {
             setError("Signal trop faible. Assurez-vous de bien couvrir l'objectif et le flash.");
             return;
         }
@@ -175,9 +227,9 @@ export const HealthView = ({ userData, setUserData }: any) => {
 
         // Interpretation
         let resStatus: HealthRecord['status'] = 'good';
-        if (calculatedHrv > 70) resStatus = 'optimal';
-        else if (calculatedHrv < 30) resStatus = 'strained';
-        else if (calculatedHrv < 50) resStatus = 'fatigued';
+        if (calculatedHrv > 65) resStatus = 'optimal';
+        else if (calculatedHrv < 25) resStatus = 'strained';
+        else if (calculatedHrv < 45) resStatus = 'fatigued';
         
         setStatus(resStatus);
 
@@ -194,14 +246,14 @@ export const HealthView = ({ userData, setUserData }: any) => {
 
     return (
         <div className="space-y-6">
-            <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-sm border border-slate-100 dark:border-slate-700">
+            <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
                 <div className="flex items-center justify-between mb-6">
                     <div>
                         <h2 className="text-xl font-black text-slate-800 dark:text-white">Check-up Santé</h2>
                         <p className="text-xs text-slate-400">Mesure PPG via caméra & flash</p>
                     </div>
                     <div className="w-12 h-12 bg-rose-100 dark:bg-rose-900/30 text-rose-600 rounded-2xl flex items-center justify-center">
-                        <Heart className={isMeasuring ? 'animate-pulse' : ''} />
+                        <Heart className={isMeasuring || isPulseDetected ? 'animate-pulse scale-110' : ''} />
                     </div>
                 </div>
 
@@ -226,30 +278,69 @@ export const HealthView = ({ userData, setUserData }: any) => {
                 )}
 
                 {isMeasuring && (
-                    <div className="space-y-8 py-4">
-                        <div className="relative w-48 h-48 mx-auto">
-                            <svg className="w-full h-full" viewBox="0 0 100 100">
-                                <circle className="text-slate-100 dark:text-slate-700 stroke-current" strokeWidth="8" fill="transparent" r="40" cx="50" cy="50" />
+                    <div className="space-y-6 py-2">
+                        {/* Live Camera View - Zoomed and Reactive */}
+                        <div className={`relative w-48 h-48 mx-auto rounded-full overflow-hidden border-4 transition-all duration-150 shadow-2xl ${isPulseDetected ? 'border-rose-400 scale-105 shadow-rose-400/30' : 'border-rose-600 shadow-rose-200 dark:shadow-none'}`}>
+                            <video 
+                                ref={videoRef} 
+                                className={`w-full h-full object-cover scale-[3.0] transition-opacity duration-150 ${isPulseDetected ? 'opacity-80' : 'opacity-100'}`} 
+                                playsInline 
+                                muted 
+                            />
+                            {/* Red overlay to simulate the flash through tissue effect */}
+                            <div className="absolute inset-0 bg-rose-600/10 mix-blend-color pointer-events-none"></div>
+                            
+                            {/* Progress Overlay */}
+                            <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 100">
                                 <circle 
-                                    className="text-rose-500 stroke-current transition-all duration-300 ease-linear" 
-                                    strokeWidth="8" 
-                                    strokeDasharray={251.2} 
-                                    strokeDashoffset={251.2 - (251.2 * progress) / 100} 
+                                    className="text-white/20 stroke-current" 
+                                    strokeWidth="4" 
+                                    fill="transparent" 
+                                    r="48" cx="50" cy="50" 
+                                />
+                                <circle 
+                                    className="text-white stroke-current transition-all duration-300 ease-linear" 
+                                    strokeWidth="4" 
+                                    strokeDasharray={301.6} 
+                                    strokeDashoffset={301.6 - (301.6 * progress) / 100} 
                                     strokeLinecap="round" 
                                     fill="transparent" 
-                                    r="40" cx="50" cy="50" 
+                                    r="48" cx="50" cy="50" 
                                     transform="rotate(-90 50 50)"
                                 />
                             </svg>
-                            <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                <span className="text-3xl font-black text-slate-800 dark:text-white">{Math.round(progress)}%</span>
-                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Analyse...</span>
+                            
+                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                <span className="text-white text-3xl font-black drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">{Math.round(progress)}%</span>
                             </div>
                         </div>
 
-                        <div className="bg-rose-50 dark:bg-rose-900/20 rounded-2xl p-4 border border-rose-100 dark:border-rose-800 flex items-center gap-3 animate-pulse">
-                            <div className="w-2 h-2 bg-rose-500 rounded-full"></div>
-                            <p className="text-xs font-medium text-rose-800 dark:text-rose-300">Gardez le doigt bien appuyé sur le flash</p>
+                        {/* Real-time Pulse Graph */}
+                        <div className="h-24 bg-slate-900 rounded-2xl p-2 relative overflow-hidden border border-slate-800">
+                            <div className="absolute top-2 left-3 flex items-center gap-1.5 z-10">
+                                <div className={`w-1.5 h-1.5 rounded-full ${signalQuality > 50 ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`}></div>
+                                <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">
+                                    {signalQuality > 50 ? 'Signal Stable' : 'Ajustez votre doigt'}
+                                </span>
+                            </div>
+                            <svg className="w-full h-full" viewBox="0 0 100 40" preserveAspectRatio="none">
+                                <path 
+                                    d={`M ${liveSignal.map((v, i) => `${(i / 49) * 100},${20 - v * 8}`).join(' L ')}`}
+                                    fill="none"
+                                    stroke={isPulseDetected ? "#fb7185" : "#f43f5e"}
+                                    strokeWidth={isPulseDetected ? "2.5" : "1.5"}
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    className="transition-all duration-100"
+                                />
+                            </svg>
+                        </div>
+
+                        <div className="bg-rose-50 dark:bg-rose-900/20 rounded-2xl p-4 border border-rose-100 dark:border-rose-800 flex items-center gap-3">
+                            <div className={`w-2 h-2 bg-rose-500 rounded-full ${isPulseDetected ? 'scale-150' : 'animate-ping'}`}></div>
+                            <p className="text-xs font-medium text-rose-800 dark:text-rose-300">
+                                {isPulseDetected ? "Battement détecté !" : "Analyse du flux sanguin..."}
+                            </p>
                         </div>
 
                         <button 
@@ -370,7 +461,6 @@ export const HealthView = ({ userData, setUserData }: any) => {
             </div>
 
             {/* Hidden elements for processing */}
-            <video ref={videoRef} style={{ display: 'none' }} playsInline muted />
             <canvas ref={canvasRef} width="100" height="100" style={{ display: 'none' }} />
         </div>
     );
