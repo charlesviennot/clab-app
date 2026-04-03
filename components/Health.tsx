@@ -85,44 +85,50 @@ export const HealthView = ({ userData, setUserData }: any) => {
                 video: { facingMode: 'environment' }
             });
 
-            // 2. Enumerate devices to find the exact main camera
+            // 2. Enumerate devices to find the ultra-wide camera
             const devices = await navigator.mediaDevices.enumerateDevices();
             const videoInputs = devices.filter(device => device.kind === 'videoinput');
             
-            let selectedDeviceId = '';
-            
-            // Try to find the standard back camera (avoiding ultra-wide or telephoto)
-            const backCameras = videoInputs.filter(device => 
-                device.label.toLowerCase().includes('back') || 
-                device.label.toLowerCase().includes('arrière') ||
-                device.label.toLowerCase().includes('environment')
+            const ultraCam = videoInputs.find(cam => 
+                cam.label.toLowerCase().includes('ultra') || 
+                cam.label.toLowerCase().includes('0.5')
             );
 
-            if (backCameras.length > 0) {
-                // Specifically target the ultra wide camera as requested
-                const ultraCam = backCameras.find(cam => 
-                    cam.label.toLowerCase().includes('ultra')
-                ) || backCameras[0];
-                selectedDeviceId = ultraCam.deviceId;
-            }
-
-            // Stop the temporary stream
-            stream.getTracks().forEach(track => track.stop());
-
-            // 3. Request the stream with the specific device ID (or fallback to environment)
-            const videoConstraints: any = {
-                width: { ideal: 640 },
-                height: { ideal: 480 },
-                frameRate: { ideal: 60 }
-            };
-
-            if (selectedDeviceId) {
-                videoConstraints.deviceId = { exact: selectedDeviceId };
+            if (ultraCam) {
+                // Stop the temporary stream
+                stream.getTracks().forEach(track => track.stop());
+                try {
+                    // Request the ultra-wide camera specifically
+                    stream = await navigator.mediaDevices.getUserMedia({
+                        video: {
+                            deviceId: { exact: ultraCam.deviceId },
+                            width: { ideal: 640 },
+                            height: { ideal: 480 },
+                            frameRate: { ideal: 60 }
+                        }
+                    });
+                } catch (e) {
+                    console.warn("Failed to get ultra-wide camera, falling back to default", e);
+                    stream = await navigator.mediaDevices.getUserMedia({
+                        video: { 
+                            facingMode: 'environment',
+                            width: { ideal: 640 },
+                            height: { ideal: 480 },
+                            frameRate: { ideal: 60 }
+                        }
+                    });
+                }
             } else {
-                videoConstraints.facingMode = 'environment';
+                // If no ultra-wide found, just use the current stream but try to apply ideal constraints
+                const track = stream.getVideoTracks()[0];
+                try {
+                    await track.applyConstraints({
+                        width: { ideal: 640 },
+                        height: { ideal: 480 },
+                        frameRate: { ideal: 60 }
+                    });
+                } catch(e) {}
             }
-
-            stream = await navigator.mediaDevices.getUserMedia({ video: videoConstraints });
 
             streamRef.current = stream;
             
@@ -138,24 +144,25 @@ export const HealthView = ({ userData, setUserData }: any) => {
             }
 
             setIsMeasuring(true);
-            const startTime = Date.now();
+            let validElapsedTime = 0;
+            let lastFrameTime = Date.now();
             const duration = 30000; // 30 seconds
 
             const processFrame = () => {
                 if (!streamRef.current || !canvasRef.current) return;
 
+                const now = Date.now();
+                const deltaTime = now - lastFrameTime;
+                lastFrameTime = now;
+
                 const ctx = canvasRef.current.getContext('2d', { willReadFrequently: true });
                 if (!ctx) return;
 
-                // We use a hidden canvas to process the pixels even if video is shown
-                // But we can also use the video element as source for drawImage
-                // To be safe and reactive, we use the stream directly if possible or the video ref
                 const source = videoRef.current || streamRef.current;
                 
                 try {
                     ctx.drawImage(source as any, 0, 0, 100, 100);
                 } catch (e) {
-                    // If video isn't ready yet
                     animationRef.current = requestAnimationFrame(processFrame);
                     return;
                 }
@@ -173,25 +180,20 @@ export const HealthView = ({ userData, setUserData }: any) => {
                 const avgGreen = greenSum / (data.length / 4);
 
                 // Gating: Is the finger properly covering the camera?
-                // A finger illuminated by flash is very red and bright.
-                if (avgRed < 120 || avgRed < avgGreen * 1.5) {
+                const isFingerDetected = avgRed > 100 && avgRed > avgGreen * 2.0;
+
+                if (!isFingerDetected) {
                     setSignalQuality(10);
                     setLiveSignal(prev => [...prev.slice(-49), 0]);
                     prevRedRef.current = avgRed;
                     
-                    const elapsed = Date.now() - startTime;
-                    setProgress(Math.min(100, (elapsed / duration) * 100));
-                    
-                    if (elapsed < duration) {
-                        animationRef.current = requestAnimationFrame(processFrame);
-                    } else {
-                        stopMeasurement();
-                        calculateResults();
-                    }
+                    // Don't advance progress if finger is not detected
+                    animationRef.current = requestAnimationFrame(processFrame);
                     return;
                 }
                 
                 setSignalQuality(100);
+                validElapsedTime += deltaTime;
 
                 // --- THE PHYSICS OF PPG ---
                 // When the heart beats, blood volume in the capillaries increases.
@@ -247,11 +249,10 @@ export const HealthView = ({ userData, setUserData }: any) => {
                     }
                 }
 
-                const elapsed = Date.now() - startTime;
-                const p = Math.min(100, (elapsed / duration) * 100);
+                const p = Math.min(100, (validElapsedTime / duration) * 100);
                 setProgress(p);
 
-                if (elapsed < duration) {
+                if (validElapsedTime < duration) {
                     animationRef.current = requestAnimationFrame(processFrame);
                 } else {
                     stopMeasurement();
@@ -415,26 +416,42 @@ export const HealthView = ({ userData, setUserData }: any) => {
 
                         {/* Middle: Real ECG Graph */}
                         <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 h-40 z-20 flex flex-col justify-center">
-                            <div className="relative w-full h-24 flex items-end justify-around px-4">
-                                {/* Real-time Pulse Graph */}
-                                <svg className="absolute inset-0 w-full h-full" preserveAspectRatio="none" viewBox="0 0 100 100">
-                                    <path 
-                                        d={`M ${liveSignal.map((v, i) => `${(i / 49) * 100},${50 - v * 15}`).join(' L ')}`}
-                                        fill="none" 
-                                        stroke="rgba(255,255,255,0.9)" 
-                                        strokeWidth="1.5" 
-                                        vectorEffect="non-scaling-stroke"
-                                        className="transition-all duration-75"
-                                    />
-                                </svg>
-                                {/* RR Intervals */}
-                                {liveRrIntervals.map((rr, idx) => (
-                                    <div key={idx} className="text-white/90 text-sm font-medium mb-16 z-10 drop-shadow-md">{rr}</div>
-                                ))}
-                            </div>
-                            <p className="text-white text-xl font-bold text-center mt-8 px-8 leading-tight drop-shadow-lg">
-                                Stress is how bent out of shape your tree branch is
-                            </p>
+                            {signalQuality < 50 ? (
+                                <div className="flex flex-col items-center justify-center h-full px-8 text-center animate-pulse">
+                                    <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mb-4">
+                                        <Camera className="text-white" size={32} />
+                                    </div>
+                                    <p className="text-white text-xl font-bold drop-shadow-lg">
+                                        Placez votre doigt sur la caméra
+                                    </p>
+                                    <p className="text-white/80 text-sm mt-2 font-medium">
+                                        Couvrez complètement l'objectif (et le flash si possible)
+                                    </p>
+                                </div>
+                            ) : (
+                                <>
+                                    <div className="relative w-full h-24 flex items-end justify-around px-4">
+                                        {/* Real-time Pulse Graph */}
+                                        <svg className="absolute inset-0 w-full h-full" preserveAspectRatio="none" viewBox="0 0 100 100">
+                                            <path 
+                                                d={`M ${liveSignal.map((v, i) => `${(i / 49) * 100},${50 - v * 15}`).join(' L ')}`}
+                                                fill="none" 
+                                                stroke="rgba(255,255,255,0.9)" 
+                                                strokeWidth="1.5" 
+                                                vectorEffect="non-scaling-stroke"
+                                                className="transition-all duration-75"
+                                            />
+                                        </svg>
+                                        {/* RR Intervals */}
+                                        {liveRrIntervals.map((rr, idx) => (
+                                            <div key={idx} className="text-white/90 text-sm font-medium mb-16 z-10 drop-shadow-md">{rr}</div>
+                                        ))}
+                                    </div>
+                                    <p className="text-white text-xl font-bold text-center mt-8 px-8 leading-tight drop-shadow-lg">
+                                        Stress is how bent out of shape your tree branch is
+                                    </p>
+                                </>
+                            )}
                         </div>
 
                         {/* Bottom: Progress Circle */}

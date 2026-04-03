@@ -88,9 +88,9 @@ export const PushUpCounter = ({ onClose }: { onClose?: () => void }) => {
                     }
                 } else if (baselineBrightnessRef.current !== null) {
                     // Detection phase
-                    // When the user goes down, they cover the camera, making it significantly darker
-                    const thresholdDown = baselineBrightnessRef.current * 0.6; // 40% darker
-                    const thresholdUp = baselineBrightnessRef.current * 0.85; // 15% darker
+                    // When the user goes down, they cover the camera, making it darker
+                    const thresholdDown = baselineBrightnessRef.current * 0.85; // 15% darker is enough to trigger
+                    const thresholdUp = baselineBrightnessRef.current * 0.92; // 8% darker to reset
 
                     if (!isDownRef.current && avgBrightness < thresholdDown) {
                         // User went down
