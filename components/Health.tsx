@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Heart, Activity, Zap, Info, History, Camera, CheckCircle, AlertCircle, Thermometer, RefreshCw, TrendingUp, TrendingDown, Minus, Plus, Play, StopCircle } from 'lucide-react';
+import { Heart, Activity, Zap, Info, History, Camera, CheckCircle, AlertCircle, Thermometer, RefreshCw, TrendingUp, TrendingDown, Minus, Plus, Play, StopCircle, X } from 'lucide-react';
 import { vibrate } from '../utils/helpers';
 
 interface HealthRecord {
@@ -59,14 +59,49 @@ export const HealthView = ({ userData, setUserData }: any) => {
             signalRef.current = [];
             timestampsRef.current = [];
             
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: { 
-                    facingMode: 'environment',
-                    width: { ideal: 640 },
-                    height: { ideal: 480 },
-                    frameRate: { ideal: 60 }
-                }
+            // 1. Initial request to get permissions
+            let stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: 'environment' }
             });
+
+            // 2. Enumerate devices to find the exact main camera
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const videoInputs = devices.filter(device => device.kind === 'videoinput');
+            
+            let selectedDeviceId = '';
+            
+            // Try to find the standard back camera (avoiding ultra-wide or telephoto)
+            const backCameras = videoInputs.filter(device => 
+                device.label.toLowerCase().includes('back') || 
+                device.label.toLowerCase().includes('arrière') ||
+                device.label.toLowerCase().includes('environment')
+            );
+
+            if (backCameras.length > 0) {
+                // Specifically target the ultra wide camera as requested
+                const ultraCam = backCameras.find(cam => 
+                    cam.label.toLowerCase().includes('ultra')
+                ) || backCameras[0];
+                selectedDeviceId = ultraCam.deviceId;
+            }
+
+            // Stop the temporary stream
+            stream.getTracks().forEach(track => track.stop());
+
+            // 3. Request the stream with the specific device ID (or fallback to environment)
+            const videoConstraints: any = {
+                width: { ideal: 640 },
+                height: { ideal: 480 },
+                frameRate: { ideal: 60 }
+            };
+
+            if (selectedDeviceId) {
+                videoConstraints.deviceId = { exact: selectedDeviceId };
+            } else {
+                videoConstraints.facingMode = 'environment';
+            }
+
+            stream = await navigator.mediaDevices.getUserMedia({ video: videoConstraints });
 
             streamRef.current = stream;
             
@@ -278,77 +313,73 @@ export const HealthView = ({ userData, setUserData }: any) => {
                 )}
 
                 {isMeasuring && (
-                    <div className="space-y-4 py-2 animate-in fade-in zoom-in duration-500">
-                        {/* Immersive Red Screen (Welltory style) */}
-                        <div className="relative w-full aspect-[4/5] max-h-[60vh] mx-auto rounded-[2.5rem] overflow-hidden shadow-2xl bg-rose-950 border-4 border-rose-900/50">
-                            <video 
-                                ref={videoRef} 
-                                className={`absolute inset-0 w-full h-full object-cover scale-[4.0] transition-all duration-150 ${isPulseDetected ? 'brightness-50' : 'brightness-110'}`} 
-                                playsInline 
-                                muted 
-                            />
-                            {/* Deep red blood filter - darkens on systole, lightens on diastole */}
-                            <div className={`absolute inset-0 transition-colors duration-150 mix-blend-multiply pointer-events-none ${isPulseDetected ? 'bg-rose-950/90' : 'bg-rose-600/50'}`}></div>
-                            
-                            <div className="absolute inset-0 flex flex-col items-center justify-between py-10 px-6 z-10 pointer-events-none">
-                                <div className="text-center space-y-2">
-                                    <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full backdrop-blur-md border ${signalQuality > 50 ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-100' : 'bg-rose-500/20 border-rose-500/30 text-rose-100'}`}>
-                                        <div className={`w-2 h-2 rounded-full ${signalQuality > 50 ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}`}></div>
-                                        <span className="text-[10px] font-bold uppercase tracking-widest">
-                                            {signalQuality > 50 ? 'Signal Optimal' : 'Ajustez le doigt'}
-                                        </span>
-                                    </div>
-                                    <p className="text-white/90 text-sm font-medium animate-pulse mt-4 drop-shadow-md">
-                                        {signalQuality > 50 ? "Détendez-vous, respirez calmement..." : "Couvrez bien l'objectif et le flash"}
-                                    </p>
-                                </div>
-
-                                {/* Progress Circle */}
-                                <div className="relative w-32 h-32 flex items-center justify-center">
-                                    <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 100 100">
-                                        <circle className="text-white/10 stroke-current" strokeWidth="3" fill="transparent" r="48" cx="50" cy="50" />
-                                        <circle 
-                                            className="text-white stroke-current transition-all duration-300 ease-linear drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]" 
-                                            strokeWidth="3" 
-                                            strokeDasharray={301.6} 
-                                            strokeDashoffset={301.6 - (301.6 * progress) / 100} 
-                                            strokeLinecap="round" 
-                                            fill="transparent" 
-                                            r="48" cx="50" cy="50" 
-                                        />
-                                    </svg>
-                                    <span className="text-white text-4xl font-black drop-shadow-lg">{Math.round(progress)}</span>
-                                </div>
-
-                                <div className="text-center">
-                                    <p className="text-white/80 text-xs font-medium max-w-[220px] mx-auto leading-relaxed drop-shadow-md">
-                                        Appliquez une pression très légère. Ne bougez pas.
-                                    </p>
-                                </div>
+                    <div className="fixed inset-0 z-[100] bg-rose-950 flex flex-col animate-in fade-in duration-500 overflow-hidden">
+                        {/* Immersive Red Screen (Welltory style) - Full Screen */}
+                        <video 
+                            ref={videoRef} 
+                            className={`absolute inset-0 w-full h-full object-cover scale-[4.0] transition-all duration-150 ${isPulseDetected ? 'brightness-50' : 'brightness-110'}`} 
+                            playsInline 
+                            muted 
+                        />
+                        {/* Deep red blood filter - darkens on systole, lightens on diastole */}
+                        <div className={`absolute inset-0 transition-colors duration-150 mix-blend-multiply pointer-events-none ${isPulseDetected ? 'bg-rose-950/90' : 'bg-rose-600/50'}`}></div>
+                        
+                        {/* Top Bar with Cancel */}
+                        <div className="absolute top-0 left-0 right-0 p-6 pt-12 flex justify-between items-start z-20 pointer-events-auto">
+                            <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full backdrop-blur-md border ${signalQuality > 50 ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-100' : 'bg-rose-500/20 border-rose-500/30 text-rose-100'}`}>
+                                <div className={`w-2 h-2 rounded-full ${signalQuality > 50 ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}`}></div>
+                                <span className="text-[10px] font-bold uppercase tracking-widest">
+                                    {signalQuality > 50 ? 'Signal Optimal' : 'Ajustez le doigt'}
+                                </span>
                             </div>
-
-                            {/* Real-time Pulse Graph Overlay at bottom */}
-                            <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-rose-950/90 to-transparent opacity-80 pointer-events-none">
-                                <svg className="w-full h-full" viewBox="0 0 100 40" preserveAspectRatio="none">
-                                    <path 
-                                        d={`M ${liveSignal.map((v, i) => `${(i / 49) * 100},${20 - v * 8}`).join(' L ')}`}
-                                        fill="none"
-                                        stroke="rgba(255,255,255,0.5)"
-                                        strokeWidth="2"
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        className="transition-all duration-100"
-                                    />
-                                </svg>
-                            </div>
+                            <button 
+                                onClick={stopMeasurement} 
+                                className="w-10 h-10 bg-black/20 backdrop-blur-md rounded-full flex items-center justify-center text-white/80 hover:text-white hover:bg-black/40 transition-colors"
+                            >
+                                <X size={20} />
+                            </button>
                         </div>
 
-                        <button 
-                            onClick={stopMeasurement}
-                            className="w-full py-4 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold rounded-2xl transition active:scale-95"
-                        >
-                            Annuler la mesure
-                        </button>
+                        <div className="absolute inset-0 flex flex-col items-center justify-center z-10 pointer-events-none">
+                            {/* Progress Circle */}
+                            <div className="relative w-48 h-48 flex items-center justify-center mb-8">
+                                <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 100 100">
+                                    <circle className="text-white/10 stroke-current" strokeWidth="2" fill="transparent" r="48" cx="50" cy="50" />
+                                    <circle 
+                                        className="text-white stroke-current transition-all duration-300 ease-linear drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]" 
+                                        strokeWidth="2" 
+                                        strokeDasharray={301.6} 
+                                        strokeDashoffset={301.6 - (301.6 * progress) / 100} 
+                                        strokeLinecap="round" 
+                                        fill="transparent" 
+                                        r="48" cx="50" cy="50" 
+                                    />
+                                </svg>
+                                <span className="text-white text-6xl font-black drop-shadow-lg">{Math.round(progress)}</span>
+                            </div>
+
+                            <p className="text-white/90 text-lg font-medium animate-pulse drop-shadow-md text-center px-6">
+                                {signalQuality > 50 ? "Détendez-vous, respirez calmement..." : "Couvrez bien l'objectif et le flash"}
+                            </p>
+                            <p className="text-white/60 text-sm font-medium mt-2 max-w-[250px] text-center drop-shadow-md">
+                                Appliquez une pression très légère. Ne bougez pas.
+                            </p>
+                        </div>
+
+                        {/* Real-time Pulse Graph Overlay at bottom */}
+                        <div className="absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-t from-rose-950 via-rose-950/80 to-transparent pointer-events-none z-10">
+                            <svg className="w-full h-full absolute bottom-0" viewBox="0 0 100 40" preserveAspectRatio="none">
+                                <path 
+                                    d={`M ${liveSignal.map((v, i) => `${(i / 49) * 100},${20 - v * 8}`).join(' L ')}`}
+                                    fill="none"
+                                    stroke="rgba(255,255,255,0.6)"
+                                    strokeWidth="1.5"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    className="transition-all duration-100"
+                                />
+                            </svg>
+                        </div>
                     </div>
                 )}
 
