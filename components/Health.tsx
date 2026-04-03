@@ -364,48 +364,48 @@ export const HealthView = ({ userData, setUserData }: any) => {
                 )}
 
                 {isMeasuring && (
-                    <div className="fixed inset-0 z-[100] bg-red-600 flex flex-col animate-in fade-in duration-500 overflow-hidden font-sans">
-                        {/* Immersive Red Screen - Full Screen */}
+                    <div className="fixed inset-0 z-[100] bg-black flex flex-col animate-in fade-in duration-500 overflow-hidden font-sans">
+                        {/* Real Camera Feed - No artificial red overlay, just the raw feed which will be red from the finger */}
                         <video 
                             ref={videoRef} 
-                            className="absolute inset-0 w-full h-full object-cover scale-[4.0] opacity-50 mix-blend-overlay" 
+                            className="absolute inset-0 w-full h-full object-cover scale-110" 
                             playsInline 
                             muted 
                         />
-                        <div className="absolute inset-0 bg-gradient-to-b from-red-500/50 via-red-600/80 to-red-900 pointer-events-none"></div>
                         
                         {/* Top: Live BPM */}
                         <div className="absolute top-20 left-0 right-0 flex justify-center items-center gap-3 z-20">
                             <Heart className={`text-white ${isPulseDetected ? 'scale-110' : 'scale-100'} transition-transform duration-100`} fill="white" size={28} />
-                            <span className="text-white text-6xl font-medium tracking-tight">{liveBpm || '--'} bpm</span>
+                            <span className="text-white text-6xl font-medium tracking-tight drop-shadow-md">{liveBpm || '--'} bpm</span>
                         </div>
 
-                        {/* Middle: ECG Graph */}
+                        {/* Middle: Real ECG Graph */}
                         <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 h-40 z-20 flex flex-col justify-center">
                             <div className="relative w-full h-24 flex items-end justify-around px-4">
-                                {/* Simulated ECG Line */}
+                                {/* Real-time Pulse Graph */}
                                 <svg className="absolute inset-0 w-full h-full" preserveAspectRatio="none" viewBox="0 0 100 100">
                                     <path 
-                                        d="M 0,50 L 15,50 L 17,60 L 20,10 L 23,90 L 26,50 L 40,50 L 42,60 L 45,10 L 48,90 L 51,50 L 65,50 L 67,60 L 70,10 L 73,90 L 76,50 L 90,50 L 92,60 L 95,10 L 98,90 L 101,50" 
+                                        d={`M ${liveSignal.map((v, i) => `${(i / 49) * 100},${50 - v * 15}`).join(' L ')}`}
                                         fill="none" 
-                                        stroke="rgba(255,255,255,0.8)" 
-                                        strokeWidth="0.5" 
+                                        stroke="rgba(255,255,255,0.9)" 
+                                        strokeWidth="1.5" 
                                         vectorEffect="non-scaling-stroke"
+                                        className="transition-all duration-75"
                                     />
                                 </svg>
                                 {/* RR Intervals */}
                                 {liveRrIntervals.map((rr, idx) => (
-                                    <div key={idx} className="text-white/80 text-sm font-medium mb-16 z-10">{rr}</div>
+                                    <div key={idx} className="text-white/90 text-sm font-medium mb-16 z-10 drop-shadow-md">{rr}</div>
                                 ))}
                             </div>
-                            <p className="text-white text-xl font-bold text-center mt-8 px-8 leading-tight drop-shadow-md">
+                            <p className="text-white text-xl font-bold text-center mt-8 px-8 leading-tight drop-shadow-lg">
                                 Stress is how bent out of shape your tree branch is
                             </p>
                         </div>
 
                         {/* Bottom: Progress Circle */}
                         <div className="absolute bottom-32 left-0 right-0 flex justify-center z-20">
-                            <div className="relative w-40 h-40 flex items-center justify-center bg-red-500/20 rounded-full border border-red-500/30">
+                            <div className="relative w-40 h-40 flex items-center justify-center bg-black/20 backdrop-blur-sm rounded-full border border-white/20">
                                 <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 100 100">
                                     <circle 
                                         className="text-white/20" 
@@ -414,7 +414,7 @@ export const HealthView = ({ userData, setUserData }: any) => {
                                         r="44" cx="50" cy="50" 
                                     />
                                     <circle 
-                                        className="text-white transition-all duration-300 ease-linear" 
+                                        className="text-white transition-all duration-300 ease-linear drop-shadow-md" 
                                         strokeWidth="4" 
                                         strokeDasharray={276} 
                                         strokeDashoffset={276 - (276 * progress) / 100} 
@@ -423,7 +423,7 @@ export const HealthView = ({ userData, setUserData }: any) => {
                                         r="44" cx="50" cy="50" 
                                     />
                                 </svg>
-                                <span className="text-white text-4xl font-bold">{Math.round(progress)}%</span>
+                                <span className="text-white text-4xl font-bold drop-shadow-md">{Math.round(progress)}%</span>
                             </div>
                         </div>
 
@@ -431,7 +431,7 @@ export const HealthView = ({ userData, setUserData }: any) => {
                         <div className="absolute bottom-12 left-0 right-0 flex justify-center z-20">
                             <button 
                                 onClick={stopMeasurement} 
-                                className="px-12 py-3 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-xl text-white font-medium transition-colors"
+                                className="px-12 py-3 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-xl text-white font-medium transition-colors border border-white/10"
                             >
                                 Stop
                             </button>

@@ -173,11 +173,11 @@ export const PushUpCounter = ({ onClose }: { onClose?: () => void }) => {
                     )}
                 </div>
             ) : (
-                <div className="fixed inset-0 z-[100] bg-slate-950 flex flex-col animate-in fade-in duration-500 overflow-hidden">
+                <div className="fixed inset-0 z-[100] bg-black flex flex-col animate-in fade-in duration-500 overflow-hidden">
                     {/* Camera Feed */}
                     <video 
                         ref={videoRef} 
-                        className="absolute inset-0 w-full h-full object-cover opacity-50" 
+                        className="absolute inset-0 w-full h-full object-cover" 
                         playsInline 
                         muted 
                         style={{ transform: 'scaleX(-1)' }} // Mirror effect for front camera
