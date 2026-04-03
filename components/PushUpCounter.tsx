@@ -128,8 +128,9 @@ export const PushUpCounter = ({ onClose }: { onClose?: () => void }) => {
                     setFeedback("C'est parti ! Descendez...");
                 }
             } else if (baselineBrightnessRef.current !== null) {
-                const thresholdDown = baselineBrightnessRef.current * 0.85;
-                const thresholdUp = baselineBrightnessRef.current * 0.92;
+                // Increased sensitivity: only 10% darker to trigger down, 5% darker to trigger up
+                const thresholdDown = baselineBrightnessRef.current * 0.90;
+                const thresholdUp = baselineBrightnessRef.current * 0.95;
 
                 if (!isDownRef.current && avgBrightness < thresholdDown) {
                     isDownRef.current = true;
@@ -137,6 +138,27 @@ export const PushUpCounter = ({ onClose }: { onClose?: () => void }) => {
                     vibrate(50);
                 } else if (isDownRef.current && avgBrightness > thresholdUp) {
                     isDownRef.current = false;
+                    
+                    // Play a small beep sound
+                    try {
+                        const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+                        if (AudioContext) {
+                            const ctx = new AudioContext();
+                            const osc = ctx.createOscillator();
+                            const gain = ctx.createGain();
+                            osc.connect(gain);
+                            gain.connect(ctx.destination);
+                            osc.type = 'sine';
+                            osc.frequency.setValueAtTime(880, ctx.currentTime); // A5 note
+                            gain.gain.setValueAtTime(0.1, ctx.currentTime);
+                            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+                            osc.start();
+                            osc.stop(ctx.currentTime + 0.15);
+                        }
+                    } catch (e) {
+                        console.error("Audio play failed", e);
+                    }
+
                     setCount(prev => {
                         const newCount = prev + 1;
                         if (newCount >= targetRepsRef.current) {

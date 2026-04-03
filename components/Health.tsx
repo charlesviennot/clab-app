@@ -80,23 +80,28 @@ export const HealthView = ({ userData, setUserData }: any) => {
             allRrIntervalsRef.current = [];
             recentValuesRef.current = [0, 0, 0];
             
-            // 1. Initial request to get permissions
-            let stream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: 'environment' }
-            });
+            // 1. Check permissions and get device list safely
+            let devices = await navigator.mediaDevices.enumerateDevices();
+            let hasLabels = devices.some(d => d.label && d.label.length > 0);
 
-            // 2. Enumerate devices to find the ultra-wide camera
-            const devices = await navigator.mediaDevices.enumerateDevices();
+            if (!hasLabels) {
+                // Request permission by opening a temporary stream
+                const tempStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+                tempStream.getTracks().forEach(track => track.stop());
+                // Wait for hardware to fully release the camera (crucial for iOS)
+                await new Promise(resolve => setTimeout(resolve, 500));
+                devices = await navigator.mediaDevices.enumerateDevices();
+            }
+
             const videoInputs = devices.filter(device => device.kind === 'videoinput');
-            
             const ultraCam = videoInputs.find(cam => 
                 cam.label.toLowerCase().includes('ultra') || 
                 cam.label.toLowerCase().includes('0.5')
             );
 
+            let stream: MediaStream;
+
             if (ultraCam) {
-                // Stop the temporary stream
-                stream.getTracks().forEach(track => track.stop());
                 try {
                     // Request the ultra-wide camera specifically
                     stream = await navigator.mediaDevices.getUserMedia({
@@ -119,15 +124,15 @@ export const HealthView = ({ userData, setUserData }: any) => {
                     });
                 }
             } else {
-                // If no ultra-wide found, just use the current stream but try to apply ideal constraints
-                const track = stream.getVideoTracks()[0];
-                try {
-                    await track.applyConstraints({
+                // Fallback if no ultra-wide found
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { 
+                        facingMode: 'environment',
                         width: { ideal: 640 },
                         height: { ideal: 480 },
                         frameRate: { ideal: 60 }
-                    });
-                } catch(e) {}
+                    }
+                });
             }
 
             streamRef.current = stream;
