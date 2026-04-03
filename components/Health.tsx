@@ -180,7 +180,8 @@ export const HealthView = ({ userData, setUserData }: any) => {
                 const avgGreen = greenSum / (data.length / 4);
 
                 // Gating: Is the finger properly covering the camera?
-                const isFingerDetected = avgRed > 100 && avgRed > avgGreen * 2.0;
+                // We relax this to just require it to be mostly red to support devices where flash might be weak or on ultra-wide.
+                const isFingerDetected = avgRed > 50 && avgRed > avgGreen * 1.1;
 
                 if (!isFingerDetected) {
                     setSignalQuality(10);
