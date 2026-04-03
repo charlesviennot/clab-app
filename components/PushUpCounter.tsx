@@ -129,13 +129,13 @@ export const PushUpCounter = ({ onClose }: { onClose?: () => void }) => {
                     setFeedback("C'est parti ! Descendez...");
                 }
             } else if (baselineBrightnessRef.current !== null) {
-                // Increased sensitivity: only 10% darker to trigger down, 5% darker to trigger up
-                const thresholdDown = baselineBrightnessRef.current * 0.90;
-                const thresholdUp = baselineBrightnessRef.current * 0.95;
+                // Very high sensitivity: only 5% darker to trigger down, 2% darker to trigger up
+                const thresholdDown = baselineBrightnessRef.current * 0.95;
+                const thresholdUp = baselineBrightnessRef.current * 0.98;
 
                 if (!isDownRef.current && avgBrightness < thresholdDown) {
-                    // Add a cooldown of 800ms to prevent double counting when going back up
-                    if (Date.now() - lastPushUpTimeRef.current > 800) {
+                    // Reduce cooldown to 500ms for faster push-ups
+                    if (Date.now() - lastPushUpTimeRef.current > 500) {
                         isDownRef.current = true;
                         setFeedback("Remontez !");
                         vibrate(50);

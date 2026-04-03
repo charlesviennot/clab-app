@@ -80,31 +80,28 @@ export const HealthView = ({ userData, setUserData }: any) => {
             allRrIntervalsRef.current = [];
             recentValuesRef.current = [0, 0, 0];
             
-            // 1. Check permissions and get device list safely
-            let devices = await navigator.mediaDevices.enumerateDevices();
-            let hasLabels = devices.some(d => d.label && d.label.length > 0);
-
-            if (!hasLabels) {
-                // Request permission by opening a temporary stream
-                const tempStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-                tempStream.getTracks().forEach(track => track.stop());
-                // Wait for hardware to fully release the camera (crucial for iOS)
-                await new Promise(resolve => setTimeout(resolve, 500));
-                devices = await navigator.mediaDevices.enumerateDevices();
+            // 1. Simple request to trigger permission prompt and get default back camera
+            let stream: MediaStream;
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } }
+                });
+            } catch (err) {
+                console.error("Initial camera request failed:", err);
+                throw err; // Let the outer catch handle it and show the error message
             }
 
-            const videoInputs = devices.filter(device => device.kind === 'videoinput');
-            const ultraCam = videoInputs.find(cam => 
-                cam.label.toLowerCase().includes('ultra') || 
-                cam.label.toLowerCase().includes('0.5')
-            );
+            // 2. Now that we have permission, check if there's an ultra-wide
+            try {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const videoInputs = devices.filter(device => device.kind === 'videoinput');
+                const ultraCam = videoInputs.find(cam => 
+                    cam.label.toLowerCase().includes('ultra') || 
+                    cam.label.toLowerCase().includes('0.5')
+                );
 
-            let stream: MediaStream;
-
-            if (ultraCam) {
-                try {
-                    // Request the ultra-wide camera specifically
-                    stream = await navigator.mediaDevices.getUserMedia({
+                if (ultraCam) {
+                    const ultraStream = await navigator.mediaDevices.getUserMedia({
                         video: {
                             deviceId: { exact: ultraCam.deviceId },
                             width: { ideal: 640 },
@@ -112,27 +109,13 @@ export const HealthView = ({ userData, setUserData }: any) => {
                             frameRate: { ideal: 60 }
                         }
                     });
-                } catch (e) {
-                    console.warn("Failed to get ultra-wide camera, falling back to default", e);
-                    stream = await navigator.mediaDevices.getUserMedia({
-                        video: { 
-                            facingMode: 'environment',
-                            width: { ideal: 640 },
-                            height: { ideal: 480 },
-                            frameRate: { ideal: 60 }
-                        }
-                    });
+                    // Success! Stop the initial stream and use the ultra-wide
+                    stream.getTracks().forEach(track => track.stop());
+                    stream = ultraStream;
                 }
-            } else {
-                // Fallback if no ultra-wide found
-                stream = await navigator.mediaDevices.getUserMedia({
-                    video: { 
-                        facingMode: 'environment',
-                        width: { ideal: 640 },
-                        height: { ideal: 480 },
-                        frameRate: { ideal: 60 }
-                    }
-                });
+            } catch (e) {
+                console.warn("Could not switch to ultra-wide, keeping default back camera", e);
+                // Keep the initial stream
             }
 
             streamRef.current = stream;
