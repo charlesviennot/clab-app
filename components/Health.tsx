@@ -177,23 +177,32 @@ export const HealthView = ({ userData, setUserData }: any) => {
 
                 let redSum = 0;
                 let greenSum = 0;
-                for (let i = 0; i < data.length; i += 4) {
-                    redSum += data[i];
-                    greenSum += data[i+1];
+                let pixelCount = 0;
+                
+                // Focus on the bottom half of the image (y from 50 to 100)
+                // Since the user mentioned the finger darkens the bottom of the ultra-wide camera
+                for (let y = 50; y < 100; y++) {
+                    for (let x = 0; x < 100; x++) {
+                        const i = (y * 100 + x) * 4;
+                        redSum += data[i];
+                        greenSum += data[i+1];
+                        pixelCount++;
+                    }
                 }
-                const avgRed = redSum / (data.length / 4);
-                const avgGreen = greenSum / (data.length / 4);
+                const avgRed = redSum / pixelCount;
+                const avgGreen = greenSum / pixelCount;
 
-                // Gating: Is the finger properly covering the camera?
-                // We relax this to just require it to be mostly red to support devices where flash might be weak or on ultra-wide.
-                const isFingerDetected = avgRed > 50 && avgRed > avgGreen * 1.1;
+                // Gating: We completely remove the strict color gating.
+                // If the user started the measurement, we trust them and record the signal.
+                // We just check if the camera isn't completely black/dead.
+                const isFingerDetected = avgRed > 5;
 
                 if (!isFingerDetected) {
                     setSignalQuality(10);
                     setLiveSignal(prev => [...prev.slice(-49), 0]);
                     prevRedRef.current = avgRed;
                     
-                    // Don't advance progress if finger is not detected
+                    // Don't advance progress if camera is completely dead
                     animationRef.current = requestAnimationFrame(processFrame);
                     return;
                 }

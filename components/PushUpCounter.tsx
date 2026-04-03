@@ -26,6 +26,7 @@ export const PushUpCounter = ({ onClose }: { onClose?: () => void }) => {
     const isDownRef = useRef(false);
     const baselineBrightnessRef = useRef<number | null>(null);
     const targetRepsRef = useRef(targetReps);
+    const lastPushUpTimeRef = useRef<number>(0);
 
     useEffect(() => {
         targetRepsRef.current = targetReps;
@@ -133,11 +134,15 @@ export const PushUpCounter = ({ onClose }: { onClose?: () => void }) => {
                 const thresholdUp = baselineBrightnessRef.current * 0.95;
 
                 if (!isDownRef.current && avgBrightness < thresholdDown) {
-                    isDownRef.current = true;
-                    setFeedback("Remontez !");
-                    vibrate(50);
+                    // Add a cooldown of 800ms to prevent double counting when going back up
+                    if (Date.now() - lastPushUpTimeRef.current > 800) {
+                        isDownRef.current = true;
+                        setFeedback("Remontez !");
+                        vibrate(50);
+                    }
                 } else if (isDownRef.current && avgBrightness > thresholdUp) {
                     isDownRef.current = false;
+                    lastPushUpTimeRef.current = Date.now();
                     
                     // Play a small beep sound
                     try {
