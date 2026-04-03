@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Heart, Activity, Zap, Info, History, Camera, CheckCircle, AlertCircle, Thermometer, RefreshCw, TrendingUp, TrendingDown, Minus, Plus, Play, StopCircle, X } from 'lucide-react';
+import { Heart, Activity, Zap, Info, History, Camera, CheckCircle, AlertCircle, Thermometer, RefreshCw, TrendingUp, TrendingDown, Minus, Plus, Play, StopCircle, X, Dumbbell } from 'lucide-react';
 import { vibrate } from '../utils/helpers';
+import { PushUpCounter } from './PushUpCounter';
 
 interface HealthRecord {
     date: string;
@@ -11,6 +12,7 @@ interface HealthRecord {
 }
 
 export const HealthView = ({ userData, setUserData }: any) => {
+    const [activeMode, setActiveMode] = useState<'vfc' | 'pushup'>('vfc');
     const [isMeasuring, setIsMeasuring] = useState(false);
     const [progress, setProgress] = useState(0);
     const [bpm, setBpm] = useState<number | null>(null);
@@ -25,6 +27,11 @@ export const HealthView = ({ userData, setUserData }: any) => {
     const [liveSignal, setLiveSignal] = useState<number[]>([]);
     const [signalQuality, setSignalQuality] = useState(0);
     const [isPulseDetected, setIsPulseDetected] = useState(false);
+
+    const [liveBpm, setLiveBpm] = useState<number | null>(null);
+    const [liveRrIntervals, setLiveRrIntervals] = useState<number[]>([]);
+    const lastLivePeakRef = useRef<number>(0);
+    const livePeaksRef = useRef<number[]>([]);
 
     const videoRef = useRef<HTMLVideoElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -58,6 +65,11 @@ export const HealthView = ({ userData, setUserData }: any) => {
             setIsPulseDetected(false);
             signalRef.current = [];
             timestampsRef.current = [];
+            
+            setLiveBpm(null);
+            setLiveRrIntervals([]);
+            lastLivePeakRef.current = 0;
+            livePeaksRef.current = [];
             
             // 1. Initial request to get permissions
             let stream = await navigator.mediaDevices.getUserMedia({
@@ -164,9 +176,28 @@ export const HealthView = ({ userData, setUserData }: any) => {
                 timestampsRef.current.push(Date.now());
                 
                 // Pulse detection for UI feedback
-                if (filteredValue > 0.8) {
-                    setIsPulseDetected(true);
-                    setTimeout(() => setIsPulseDetected(false), 150);
+                if (filteredValue > 0.5) {
+                    const now = Date.now();
+                    if (now - lastLivePeakRef.current > 330) {
+                        const rr = now - lastLivePeakRef.current;
+                        
+                        if (lastLivePeakRef.current > 0) {
+                            setLiveRrIntervals(prev => [...prev.slice(-4), Math.round(rr)]);
+                        }
+                        lastLivePeakRef.current = now;
+                        
+                        setIsPulseDetected(true);
+                        setTimeout(() => setIsPulseDetected(false), 150);
+                        
+                        // Calculate live BPM
+                        livePeaksRef.current.push(now);
+                        if (livePeaksRef.current.length > 5) {
+                            livePeaksRef.current.shift();
+                            const duration = livePeaksRef.current[livePeaksRef.current.length - 1] - livePeaksRef.current[0];
+                            const bpm = Math.round((livePeaksRef.current.length - 1) / (duration / 60000));
+                            setLiveBpm(bpm);
+                        }
+                    }
                 }
 
                 // Update live signal for graph (last 50 points)
@@ -210,51 +241,26 @@ export const HealthView = ({ userData, setUserData }: any) => {
     };
 
     const calculateResults = () => {
-        const rawSignal = signalRef.current;
+        const signal = signalRef.current;
         const timestamps = timestampsRef.current;
 
-        if (rawSignal.length < 300) {
+        if (signal.length < 300) {
             setError("Mesure trop courte ou signal instable. Réessayez.");
             return;
         }
 
-        // 1. Lissage du signal (Moving Average) pour éliminer le bruit haute fréquence
-        const signal = [...rawSignal];
-        for (let i = 2; i < rawSignal.length - 2; i++) {
-            signal[i] = (rawSignal[i-2] + rawSignal[i-1] + rawSignal[i] + rawSignal[i+1] + rawSignal[i+2]) / 5;
-        }
-
-        // 2. Détection de pics avec seuil dynamique et interpolation parabolique
+        // Simple peak detection
         const peaks: number[] = [];
         const minPeakDistance = 330; // ms (max ~180 BPM)
         let lastPeakTime = 0;
 
-        for (let i = 2; i < signal.length - 2; i++) {
-            // Calcul d'une moyenne locale pour un seuil dynamique (fenêtre glissante)
-            const start = Math.max(0, i - 15);
-            const end = Math.min(signal.length, i + 15);
-            let localSum = 0;
-            for(let j = start; j < end; j++) localSum += signal[j];
-            const localMean = localSum / (end - start);
-
-            // Le pic doit être supérieur à ses voisins immédiats ET à la moyenne locale
-            if (signal[i] > signal[i - 1] && signal[i] > signal[i + 1] && signal[i] > localMean) {
-                // Interpolation parabolique pour une précision sub-frame (clinique)
-                const y1 = signal[i - 1];
-                const y2 = signal[i];
-                const y3 = signal[i + 1];
-                const denominator = (y1 - 2 * y2 + y3);
-                
-                let exactTime = timestamps[i];
-                if (denominator !== 0) {
-                    const delta = 0.5 * (y1 - y3) / denominator;
-                    const timeDiff = timestamps[i] - timestamps[i - 1];
-                    exactTime = timestamps[i] + delta * timeDiff;
-                }
-
-                if (exactTime - lastPeakTime > minPeakDistance) {
-                    peaks.push(exactTime);
-                    lastPeakTime = exactTime;
+        const threshold = 0.5; // Adjust based on signal amplitude
+        for (let i = 1; i < signal.length - 1; i++) {
+            if (signal[i] > signal[i - 1] && signal[i] > signal[i + 1] && signal[i] > threshold) {
+                const time = timestamps[i];
+                if (time - lastPeakTime > minPeakDistance) {
+                    peaks.push(time);
+                    lastPeakTime = time;
                 }
             }
         }
@@ -264,37 +270,23 @@ export const HealthView = ({ userData, setUserData }: any) => {
             return;
         }
 
-        // 3. Calcul du BPM
+        // Calculate BPM
         const totalDuration = peaks[peaks.length - 1] - peaks[0];
         const calculatedBpm = Math.round((peaks.length - 1) / (totalDuration / 60000));
 
-        // 4. Calcul du HRV (RMSSD) avec rejet des artefacts (Ectopic beats)
-        const rawRrIntervals: number[] = [];
+        // Calculate HRV (RMSSD)
+        const rrIntervals: number[] = [];
         for (let i = 1; i < peaks.length; i++) {
-            rawRrIntervals.push(peaks[i] - peaks[i - 1]);
-        }
-
-        // Filtrage des intervalles aberrants (un intervalle normal ne varie pas de >25% par rapport au précédent)
-        const validRrIntervals: number[] = [];
-        if (rawRrIntervals.length > 0) {
-            validRrIntervals.push(rawRrIntervals[0]);
-            for (let i = 1; i < rawRrIntervals.length; i++) {
-                const prev = rawRrIntervals[i - 1];
-                const curr = rawRrIntervals[i];
-                const change = Math.abs(curr - prev) / prev;
-                if (change < 0.25) {
-                    validRrIntervals.push(curr);
-                }
-            }
+            rrIntervals.push(peaks[i] - peaks[i - 1]);
         }
 
         let sumDiffSq = 0;
-        for (let i = 1; i < validRrIntervals.length; i++) {
-            sumDiffSq += Math.pow(validRrIntervals[i] - validRrIntervals[i - 1], 2);
+        for (let i = 1; i < rrIntervals.length; i++) {
+            sumDiffSq += Math.pow(rrIntervals[i] - rrIntervals[i - 1], 2);
         }
         
-        const calculatedHrv = validRrIntervals.length > 1 
-            ? Math.round(Math.sqrt(sumDiffSq / (validRrIntervals.length - 1)))
+        const calculatedHrv = rrIntervals.length > 1 
+            ? Math.round(Math.sqrt(sumDiffSq / (rrIntervals.length - 1)))
             : 0;
 
         setBpm(calculatedBpm);
@@ -321,16 +313,35 @@ export const HealthView = ({ userData, setUserData }: any) => {
 
     return (
         <div className="space-y-6">
-            <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
-                <div className="flex items-center justify-between mb-6">
-                    <div>
-                        <h2 className="text-xl font-black text-slate-800 dark:text-white">Check-up Santé</h2>
-                        <p className="text-xs text-slate-400">Mesure PPG via caméra & flash</p>
+            <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl mb-6">
+                <button 
+                    onClick={() => setActiveMode('vfc')}
+                    className={`flex-1 py-2.5 text-sm font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${activeMode === 'vfc' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`}
+                >
+                    <Heart size={16} /> VFC
+                </button>
+                <button 
+                    onClick={() => setActiveMode('pushup')}
+                    className={`flex-1 py-2.5 text-sm font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${activeMode === 'pushup' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`}
+                >
+                    <Dumbbell size={16} /> Pompes
+                </button>
+            </div>
+
+            {activeMode === 'pushup' ? (
+                <PushUpCounter />
+            ) : (
+                <>
+                <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
+                    <div className="flex items-center justify-between mb-6">
+                        <div>
+                            <h2 className="text-xl font-black text-slate-800 dark:text-white">Check-up Santé</h2>
+                            <p className="text-xs text-slate-400">Mesure PPG via caméra & flash</p>
+                        </div>
+                        <div className="w-12 h-12 bg-rose-100 dark:bg-rose-900/30 text-rose-600 rounded-2xl flex items-center justify-center">
+                            <Heart className={isMeasuring || isPulseDetected ? 'animate-pulse scale-110' : ''} />
+                        </div>
                     </div>
-                    <div className="w-12 h-12 bg-rose-100 dark:bg-rose-900/30 text-rose-600 rounded-2xl flex items-center justify-center">
-                        <Heart className={isMeasuring || isPulseDetected ? 'animate-pulse scale-110' : ''} />
-                    </div>
-                </div>
 
                 {!isMeasuring && !bpm && (
                     <div className="space-y-6">
@@ -353,72 +364,77 @@ export const HealthView = ({ userData, setUserData }: any) => {
                 )}
 
                 {isMeasuring && (
-                    <div className="fixed inset-0 z-[100] bg-rose-950 flex flex-col animate-in fade-in duration-500 overflow-hidden">
-                        {/* Immersive Red Screen (Welltory style) - Full Screen */}
+                    <div className="fixed inset-0 z-[100] bg-red-600 flex flex-col animate-in fade-in duration-500 overflow-hidden font-sans">
+                        {/* Immersive Red Screen - Full Screen */}
                         <video 
                             ref={videoRef} 
-                            className="absolute inset-0 w-full h-full object-cover scale-[4.0]" 
+                            className="absolute inset-0 w-full h-full object-cover scale-[4.0] opacity-50 mix-blend-overlay" 
                             playsInline 
                             muted 
                         />
-                        {/* Deep red blood filter - static to let the natural pulse show through */}
-                        <div className="absolute inset-0 bg-rose-600/30 mix-blend-multiply pointer-events-none"></div>
+                        <div className="absolute inset-0 bg-gradient-to-b from-red-500/50 via-red-600/80 to-red-900 pointer-events-none"></div>
                         
-                        {/* Top Bar with Cancel */}
-                        <div className="absolute top-0 left-0 right-0 p-6 pt-12 flex justify-between items-start z-20 pointer-events-auto">
-                            <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full backdrop-blur-md border ${signalQuality > 50 ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-100' : 'bg-rose-500/20 border-rose-500/30 text-rose-100'}`}>
-                                <div className={`w-2 h-2 rounded-full ${signalQuality > 50 ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}`}></div>
-                                <span className="text-[10px] font-bold uppercase tracking-widest">
-                                    {signalQuality > 50 ? 'Signal Optimal' : 'Ajustez le doigt'}
-                                </span>
-                            </div>
-                            <button 
-                                onClick={stopMeasurement} 
-                                className="w-10 h-10 bg-black/20 backdrop-blur-md rounded-full flex items-center justify-center text-white/80 hover:text-white hover:bg-black/40 transition-colors"
-                            >
-                                <X size={20} />
-                            </button>
+                        {/* Top: Live BPM */}
+                        <div className="absolute top-20 left-0 right-0 flex justify-center items-center gap-3 z-20">
+                            <Heart className={`text-white ${isPulseDetected ? 'scale-110' : 'scale-100'} transition-transform duration-100`} fill="white" size={28} />
+                            <span className="text-white text-6xl font-medium tracking-tight">{liveBpm || '--'} bpm</span>
                         </div>
 
-                        <div className="absolute inset-0 flex flex-col items-center justify-center z-10 pointer-events-none">
-                            {/* Progress Circle */}
-                            <div className="relative w-48 h-48 flex items-center justify-center mb-8">
-                                <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 100 100">
-                                    <circle className="text-white/10 stroke-current" strokeWidth="2" fill="transparent" r="48" cx="50" cy="50" />
-                                    <circle 
-                                        className="text-white stroke-current transition-all duration-300 ease-linear drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]" 
-                                        strokeWidth="2" 
-                                        strokeDasharray={301.6} 
-                                        strokeDashoffset={301.6 - (301.6 * progress) / 100} 
-                                        strokeLinecap="round" 
-                                        fill="transparent" 
-                                        r="48" cx="50" cy="50" 
+                        {/* Middle: ECG Graph */}
+                        <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 h-40 z-20 flex flex-col justify-center">
+                            <div className="relative w-full h-24 flex items-end justify-around px-4">
+                                {/* Simulated ECG Line */}
+                                <svg className="absolute inset-0 w-full h-full" preserveAspectRatio="none" viewBox="0 0 100 100">
+                                    <path 
+                                        d="M 0,50 L 15,50 L 17,60 L 20,10 L 23,90 L 26,50 L 40,50 L 42,60 L 45,10 L 48,90 L 51,50 L 65,50 L 67,60 L 70,10 L 73,90 L 76,50 L 90,50 L 92,60 L 95,10 L 98,90 L 101,50" 
+                                        fill="none" 
+                                        stroke="rgba(255,255,255,0.8)" 
+                                        strokeWidth="0.5" 
+                                        vectorEffect="non-scaling-stroke"
                                     />
                                 </svg>
-                                <span className="text-white text-6xl font-black drop-shadow-lg">{Math.round(progress)}</span>
+                                {/* RR Intervals */}
+                                {liveRrIntervals.map((rr, idx) => (
+                                    <div key={idx} className="text-white/80 text-sm font-medium mb-16 z-10">{rr}</div>
+                                ))}
                             </div>
-
-                            <p className="text-white/90 text-lg font-medium animate-pulse drop-shadow-md text-center px-6">
-                                {signalQuality > 50 ? "Détendez-vous, respirez calmement..." : "Couvrez bien l'objectif et le flash"}
-                            </p>
-                            <p className="text-white/60 text-sm font-medium mt-2 max-w-[250px] text-center drop-shadow-md">
-                                Appliquez une pression très légère. Ne bougez pas.
+                            <p className="text-white text-xl font-bold text-center mt-8 px-8 leading-tight drop-shadow-md">
+                                Stress is how bent out of shape your tree branch is
                             </p>
                         </div>
 
-                        {/* Real-time Pulse Graph Overlay at bottom */}
-                        <div className="absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-t from-rose-950 via-rose-950/80 to-transparent pointer-events-none z-10">
-                            <svg className="w-full h-full absolute bottom-0" viewBox="0 0 100 40" preserveAspectRatio="none">
-                                <path 
-                                    d={`M ${liveSignal.map((v, i) => `${(i / 49) * 100},${20 - v * 8}`).join(' L ')}`}
-                                    fill="none"
-                                    stroke="rgba(255,255,255,0.6)"
-                                    strokeWidth="1.5"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    className="transition-all duration-100"
-                                />
-                            </svg>
+                        {/* Bottom: Progress Circle */}
+                        <div className="absolute bottom-32 left-0 right-0 flex justify-center z-20">
+                            <div className="relative w-40 h-40 flex items-center justify-center bg-red-500/20 rounded-full border border-red-500/30">
+                                <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 100 100">
+                                    <circle 
+                                        className="text-white/20" 
+                                        strokeWidth="4" 
+                                        fill="transparent" 
+                                        r="44" cx="50" cy="50" 
+                                    />
+                                    <circle 
+                                        className="text-white transition-all duration-300 ease-linear" 
+                                        strokeWidth="4" 
+                                        strokeDasharray={276} 
+                                        strokeDashoffset={276 - (276 * progress) / 100} 
+                                        strokeLinecap="round" 
+                                        fill="transparent" 
+                                        r="44" cx="50" cy="50" 
+                                    />
+                                </svg>
+                                <span className="text-white text-4xl font-bold">{Math.round(progress)}%</span>
+                            </div>
+                        </div>
+
+                        {/* Bottom-most: Stop Button */}
+                        <div className="absolute bottom-12 left-0 right-0 flex justify-center z-20">
+                            <button 
+                                onClick={stopMeasurement} 
+                                className="px-12 py-3 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-xl text-white font-medium transition-colors"
+                            >
+                                Stop
+                            </button>
                         </div>
                     </div>
                 )}
@@ -530,6 +546,8 @@ export const HealthView = ({ userData, setUserData }: any) => {
                     </p>
                 </div>
             </div>
+            </>
+            )}
 
             {/* Hidden elements for processing */}
             <canvas ref={canvasRef} width="100" height="100" style={{ display: 'none' }} />
