@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Heart, Activity, Zap, Info, History, Camera, CheckCircle, AlertCircle, Thermometer, RefreshCw, TrendingUp, TrendingDown, Minus, Plus, Play, StopCircle, X, Dumbbell } from 'lucide-react';
 import { vibrate } from '../utils/helpers';
 import { PushUpCounter } from './PushUpCounter';
@@ -31,15 +32,18 @@ export const HealthView = ({ userData, setUserData }: any) => {
     const [liveBpm, setLiveBpm] = useState<number | null>(null);
     const [liveRrIntervals, setLiveRrIntervals] = useState<number[]>([]);
     const lastLivePeakRef = useRef<number>(0);
-    const livePeaksRef = useRef<number[]>([]);
+    
+    // New refs for advanced PPG algorithm
+    const prevRedRef = useRef<number>(0);
+    const dcFilterRef = useRef<number>(0);
+    const lpfRef = useRef<number>(0);
+    const allRrIntervalsRef = useRef<number[]>([]);
+    const recentValuesRef = useRef<number[]>([0, 0, 0]);
 
     const videoRef = useRef<HTMLVideoElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const streamRef = useRef<MediaStream | null>(null);
     const animationRef = useRef<number | null>(null);
-    const signalRef = useRef<number[]>([]);
-    const timestampsRef = useRef<number[]>([]);
-    const filterRef = useRef<number>(0);
 
     useEffect(() => {
         localStorage.setItem('clab_health_history', JSON.stringify(history));
@@ -69,7 +73,12 @@ export const HealthView = ({ userData, setUserData }: any) => {
             setLiveBpm(null);
             setLiveRrIntervals([]);
             lastLivePeakRef.current = 0;
-            livePeaksRef.current = [];
+            
+            prevRedRef.current = 0;
+            dcFilterRef.current = 0;
+            lpfRef.current = 0;
+            allRrIntervalsRef.current = [];
+            recentValuesRef.current = [0, 0, 0];
             
             // 1. Initial request to get permissions
             let stream = await navigator.mediaDevices.getUserMedia({
@@ -163,45 +172,80 @@ export const HealthView = ({ userData, setUserData }: any) => {
                 const avgRed = redSum / (data.length / 4);
                 const avgGreen = greenSum / (data.length / 4);
 
-                // Quality check: finger should be red and bright
-                const quality = (avgRed > 150 && avgRed > avgGreen * 1.2) ? 100 : 20;
-                setSignalQuality(quality);
-
-                // Simple high-pass filter to remove DC offset
-                const alpha = 0.95;
-                filterRef.current = alpha * filterRef.current + (1 - alpha) * avgRed;
-                const filteredValue = avgRed - filterRef.current;
-
-                signalRef.current.push(filteredValue);
-                timestampsRef.current.push(Date.now());
+                // Gating: Is the finger properly covering the camera?
+                // A finger illuminated by flash is very red and bright.
+                if (avgRed < 120 || avgRed < avgGreen * 1.5) {
+                    setSignalQuality(10);
+                    setLiveSignal(prev => [...prev.slice(-49), 0]);
+                    prevRedRef.current = avgRed;
+                    
+                    const elapsed = Date.now() - startTime;
+                    setProgress(Math.min(100, (elapsed / duration) * 100));
+                    
+                    if (elapsed < duration) {
+                        animationRef.current = requestAnimationFrame(processFrame);
+                    } else {
+                        stopMeasurement();
+                        calculateResults();
+                    }
+                    return;
+                }
                 
-                // Pulse detection for UI feedback
-                if (filteredValue > 0.5) {
+                setSignalQuality(100);
+
+                // --- THE PHYSICS OF PPG ---
+                // When the heart beats, blood volume in the capillaries increases.
+                // Blood absorbs light. Therefore, the image gets DARKER (avgRed drops).
+                // To create a graph that spikes UP on a heartbeat, we invert the signal.
+                const rawSignal = -avgRed; 
+                const prevRaw = prevRedRef.current === 0 ? rawSignal : -prevRedRef.current;
+                prevRedRef.current = avgRed;
+
+                // 1. DC Blocker (High-pass filter) to remove the baseline brightness
+                // y[n] = x[n] - x[n-1] + alpha * y[n-1]
+                const alpha = 0.95;
+                dcFilterRef.current = rawSignal - prevRaw + alpha * dcFilterRef.current;
+
+                // 2. Low-pass filter to smooth out camera noise
+                // y[n] = beta * y[n-1] + (1 - beta) * x[n]
+                const beta = 0.7;
+                lpfRef.current = beta * lpfRef.current + (1 - beta) * dcFilterRef.current;
+
+                const finalValue = lpfRef.current;
+
+                // Save for graph
+                setLiveSignal(prev => [...prev.slice(-49), finalValue]);
+
+                // 3. Peak Detection (Heartbeat)
+                recentValuesRef.current.push(finalValue);
+                recentValuesRef.current.shift();
+                
+                const [v1, v2, v3] = recentValuesRef.current;
+                
+                // A peak is a local maximum above a certain noise threshold
+                const noiseThreshold = 0.5; 
+                if (v2 > v1 && v2 > v3 && v2 > noiseThreshold) {
                     const now = Date.now();
-                    if (now - lastLivePeakRef.current > 330) {
-                        const rr = now - lastLivePeakRef.current;
-                        
+                    const timeSinceLastPeak = now - lastLivePeakRef.current;
+                    
+                    // Refractory period: human heart rate rarely exceeds 200 BPM (300ms)
+                    if (timeSinceLastPeak > 300) {
                         if (lastLivePeakRef.current > 0) {
-                            setLiveRrIntervals(prev => [...prev.slice(-4), Math.round(rr)]);
+                            const rr = timeSinceLastPeak;
+                            allRrIntervalsRef.current.push(rr);
+                            setLiveRrIntervals(prev => [...prev.slice(-3), Math.round(rr)]);
+                            
+                            // Live BPM calculation (average of last 5 RR intervals)
+                            const recentRRs = allRrIntervalsRef.current.slice(-5);
+                            const avgRr = recentRRs.reduce((a, b) => a + b, 0) / recentRRs.length;
+                            setLiveBpm(Math.round(60000 / avgRr));
                         }
                         lastLivePeakRef.current = now;
                         
                         setIsPulseDetected(true);
                         setTimeout(() => setIsPulseDetected(false), 150);
-                        
-                        // Calculate live BPM
-                        livePeaksRef.current.push(now);
-                        if (livePeaksRef.current.length > 5) {
-                            livePeaksRef.current.shift();
-                            const duration = livePeaksRef.current[livePeaksRef.current.length - 1] - livePeaksRef.current[0];
-                            const bpm = Math.round((livePeaksRef.current.length - 1) / (duration / 60000));
-                            setLiveBpm(bpm);
-                        }
                     }
                 }
-
-                // Update live signal for graph (last 50 points)
-                setLiveSignal(prev => [...prev.slice(-49), filteredValue]);
 
                 const elapsed = Date.now() - startTime;
                 const p = Math.min(100, (elapsed / duration) * 100);
@@ -241,52 +285,42 @@ export const HealthView = ({ userData, setUserData }: any) => {
     };
 
     const calculateResults = () => {
-        const signal = signalRef.current;
-        const timestamps = timestampsRef.current;
+        const rrIntervals = allRrIntervalsRef.current;
 
-        if (signal.length < 300) {
+        if (rrIntervals.length < 5) {
             setError("Mesure trop courte ou signal instable. Réessayez.");
             return;
         }
 
-        // Simple peak detection
-        const peaks: number[] = [];
-        const minPeakDistance = 330; // ms (max ~180 BPM)
-        let lastPeakTime = 0;
-
-        const threshold = 0.5; // Adjust based on signal amplitude
-        for (let i = 1; i < signal.length - 1; i++) {
-            if (signal[i] > signal[i - 1] && signal[i] > signal[i + 1] && signal[i] > threshold) {
-                const time = timestamps[i];
-                if (time - lastPeakTime > minPeakDistance) {
-                    peaks.push(time);
-                    lastPeakTime = time;
-                }
+        // Filtrage des intervalles aberrants (Ectopic beats)
+        // Un intervalle normal ne varie pas de plus de 20% par rapport au précédent
+        const validRrIntervals: number[] = [rrIntervals[0]];
+        for (let i = 1; i < rrIntervals.length; i++) {
+            const prev = rrIntervals[i - 1];
+            const curr = rrIntervals[i];
+            const change = Math.abs(curr - prev) / prev;
+            if (change < 0.20) {
+                validRrIntervals.push(curr);
             }
         }
 
-        if (peaks.length < 8) {
-            setError("Signal trop faible. Assurez-vous de bien couvrir l'objectif et le flash.");
+        if (validRrIntervals.length < 5) {
+            setError("Signal trop instable. Gardez le doigt immobile.");
             return;
         }
 
-        // Calculate BPM
-        const totalDuration = peaks[peaks.length - 1] - peaks[0];
-        const calculatedBpm = Math.round((peaks.length - 1) / (totalDuration / 60000));
+        // Calcul du BPM final (moyenne des intervalles valides)
+        const avgRr = validRrIntervals.reduce((a, b) => a + b, 0) / validRrIntervals.length;
+        const calculatedBpm = Math.round(60000 / avgRr);
 
-        // Calculate HRV (RMSSD)
-        const rrIntervals: number[] = [];
-        for (let i = 1; i < peaks.length; i++) {
-            rrIntervals.push(peaks[i] - peaks[i - 1]);
-        }
-
+        // Calcul du HRV (RMSSD)
         let sumDiffSq = 0;
-        for (let i = 1; i < rrIntervals.length; i++) {
-            sumDiffSq += Math.pow(rrIntervals[i] - rrIntervals[i - 1], 2);
+        for (let i = 1; i < validRrIntervals.length; i++) {
+            sumDiffSq += Math.pow(validRrIntervals[i] - validRrIntervals[i - 1], 2);
         }
         
-        const calculatedHrv = rrIntervals.length > 1 
-            ? Math.round(Math.sqrt(sumDiffSq / (rrIntervals.length - 1)))
+        const calculatedHrv = validRrIntervals.length > 1 
+            ? Math.round(Math.sqrt(sumDiffSq / (validRrIntervals.length - 1)))
             : 0;
 
         setBpm(calculatedBpm);
@@ -363,7 +397,7 @@ export const HealthView = ({ userData, setUserData }: any) => {
                     </div>
                 )}
 
-                {isMeasuring && (
+                {isMeasuring && createPortal(
                     <div className="fixed inset-0 z-[100] bg-black flex flex-col animate-in fade-in duration-500 overflow-hidden font-sans">
                         {/* Real Camera Feed - No artificial red overlay, just the raw feed which will be red from the finger */}
                         <video 
@@ -436,7 +470,8 @@ export const HealthView = ({ userData, setUserData }: any) => {
                                 Stop
                             </button>
                         </div>
-                    </div>
+                    </div>,
+                    document.body
                 )}
 
                 {bpm && !isMeasuring && (

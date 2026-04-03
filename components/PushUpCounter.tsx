@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Camera, Play, StopCircle, X, RotateCcw, Dumbbell } from 'lucide-react';
 import { vibrate } from '../utils/helpers';
 
@@ -172,7 +173,7 @@ export const PushUpCounter = ({ onClose }: { onClose?: () => void }) => {
                         </button>
                     )}
                 </div>
-            ) : (
+            ) : createPortal(
                 <div className="fixed inset-0 z-[100] bg-black flex flex-col animate-in fade-in duration-500 overflow-hidden">
                     {/* Camera Feed */}
                     <video 
@@ -215,7 +216,8 @@ export const PushUpCounter = ({ onClose }: { onClose?: () => void }) => {
                             </p>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );
