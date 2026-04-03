@@ -210,28 +210,51 @@ export const HealthView = ({ userData, setUserData }: any) => {
     };
 
     const calculateResults = () => {
-        const signal = signalRef.current;
+        const rawSignal = signalRef.current;
         const timestamps = timestampsRef.current;
 
-        if (signal.length < 300) {
+        if (rawSignal.length < 300) {
             setError("Mesure trop courte ou signal instable. Réessayez.");
             return;
         }
 
-        // Peak detection
+        // 1. Lissage du signal (Moving Average) pour éliminer le bruit haute fréquence
+        const signal = [...rawSignal];
+        for (let i = 2; i < rawSignal.length - 2; i++) {
+            signal[i] = (rawSignal[i-2] + rawSignal[i-1] + rawSignal[i] + rawSignal[i+1] + rawSignal[i+2]) / 5;
+        }
+
+        // 2. Détection de pics avec seuil dynamique et interpolation parabolique
         const peaks: number[] = [];
-        const minPeakDistance = 400; // ms (max 150 BPM)
+        const minPeakDistance = 330; // ms (max ~180 BPM)
         let lastPeakTime = 0;
 
-        // Simple thresholding for peak detection
-        const threshold = 0.5; 
+        for (let i = 2; i < signal.length - 2; i++) {
+            // Calcul d'une moyenne locale pour un seuil dynamique (fenêtre glissante)
+            const start = Math.max(0, i - 15);
+            const end = Math.min(signal.length, i + 15);
+            let localSum = 0;
+            for(let j = start; j < end; j++) localSum += signal[j];
+            const localMean = localSum / (end - start);
 
-        for (let i = 1; i < signal.length - 1; i++) {
-            if (signal[i] > signal[i - 1] && signal[i] > signal[i + 1] && signal[i] > threshold) {
-                const time = timestamps[i];
-                if (time - lastPeakTime > minPeakDistance) {
-                    peaks.push(time);
-                    lastPeakTime = time;
+            // Le pic doit être supérieur à ses voisins immédiats ET à la moyenne locale
+            if (signal[i] > signal[i - 1] && signal[i] > signal[i + 1] && signal[i] > localMean) {
+                // Interpolation parabolique pour une précision sub-frame (clinique)
+                const y1 = signal[i - 1];
+                const y2 = signal[i];
+                const y3 = signal[i + 1];
+                const denominator = (y1 - 2 * y2 + y3);
+                
+                let exactTime = timestamps[i];
+                if (denominator !== 0) {
+                    const delta = 0.5 * (y1 - y3) / denominator;
+                    const timeDiff = timestamps[i] - timestamps[i - 1];
+                    exactTime = timestamps[i] + delta * timeDiff;
+                }
+
+                if (exactTime - lastPeakTime > minPeakDistance) {
+                    peaks.push(exactTime);
+                    lastPeakTime = exactTime;
                 }
             }
         }
@@ -241,21 +264,38 @@ export const HealthView = ({ userData, setUserData }: any) => {
             return;
         }
 
-        // BPM
+        // 3. Calcul du BPM
         const totalDuration = peaks[peaks.length - 1] - peaks[0];
         const calculatedBpm = Math.round((peaks.length - 1) / (totalDuration / 60000));
 
-        // HRV (RMSSD)
-        const rrIntervals: number[] = [];
+        // 4. Calcul du HRV (RMSSD) avec rejet des artefacts (Ectopic beats)
+        const rawRrIntervals: number[] = [];
         for (let i = 1; i < peaks.length; i++) {
-            rrIntervals.push(peaks[i] - peaks[i - 1]);
+            rawRrIntervals.push(peaks[i] - peaks[i - 1]);
+        }
+
+        // Filtrage des intervalles aberrants (un intervalle normal ne varie pas de >25% par rapport au précédent)
+        const validRrIntervals: number[] = [];
+        if (rawRrIntervals.length > 0) {
+            validRrIntervals.push(rawRrIntervals[0]);
+            for (let i = 1; i < rawRrIntervals.length; i++) {
+                const prev = rawRrIntervals[i - 1];
+                const curr = rawRrIntervals[i];
+                const change = Math.abs(curr - prev) / prev;
+                if (change < 0.25) {
+                    validRrIntervals.push(curr);
+                }
+            }
         }
 
         let sumDiffSq = 0;
-        for (let i = 1; i < rrIntervals.length; i++) {
-            sumDiffSq += Math.pow(rrIntervals[i] - rrIntervals[i - 1], 2);
+        for (let i = 1; i < validRrIntervals.length; i++) {
+            sumDiffSq += Math.pow(validRrIntervals[i] - validRrIntervals[i - 1], 2);
         }
-        const calculatedHrv = Math.round(Math.sqrt(sumDiffSq / (rrIntervals.length - 1)));
+        
+        const calculatedHrv = validRrIntervals.length > 1 
+            ? Math.round(Math.sqrt(sumDiffSq / (validRrIntervals.length - 1)))
+            : 0;
 
         setBpm(calculatedBpm);
         setHrv(calculatedHrv);
@@ -317,12 +357,12 @@ export const HealthView = ({ userData, setUserData }: any) => {
                         {/* Immersive Red Screen (Welltory style) - Full Screen */}
                         <video 
                             ref={videoRef} 
-                            className={`absolute inset-0 w-full h-full object-cover scale-[4.0] transition-all duration-150 ${isPulseDetected ? 'brightness-50' : 'brightness-110'}`} 
+                            className="absolute inset-0 w-full h-full object-cover scale-[4.0]" 
                             playsInline 
                             muted 
                         />
-                        {/* Deep red blood filter - darkens on systole, lightens on diastole */}
-                        <div className={`absolute inset-0 transition-colors duration-150 mix-blend-multiply pointer-events-none ${isPulseDetected ? 'bg-rose-950/90' : 'bg-rose-600/50'}`}></div>
+                        {/* Deep red blood filter - static to let the natural pulse show through */}
+                        <div className="absolute inset-0 bg-rose-600/30 mix-blend-multiply pointer-events-none"></div>
                         
                         {/* Top Bar with Cancel */}
                         <div className="absolute top-0 left-0 right-0 p-6 pt-12 flex justify-between items-start z-20 pointer-events-auto">
